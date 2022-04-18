@@ -1,0 +1,23 @@
+[package]
+name = "multiconst"
+version = "0.1.0"
+edition = "2018"
+authors = ["rodrimati1992 <rodrimatt1985@gmail.com>"]
+rust-version = "1.51.0"
+license = "Zlib"
+resolver = "2"
+description = "destructures an expression into multiple constants"
+documentation = "https://docs.rs/multiconst/"
+readme="./README.md"
+keywords = ["no-std"]
+categories = ["no-std"]
+repository = "https://github.com/rodrimati1992/multiconst/"
+include = [
+    "Cargo.toml", 
+    "src/**/*.rs", 
+    "README.md",
+    "LICENSE-ZLIB.md", 
+]
+
+
+[dependencies]
