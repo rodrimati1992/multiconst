@@ -1,6 +1,6 @@
 [package]
 name = "multiconst"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2018"
 authors = ["rodrimati1992 <rodrimatt1985@gmail.com>"]
 rust-version = "1.51.0"
@@ -19,5 +19,10 @@ include = [
     "LICENSE-ZLIB.md", 
 ]
 
+[features]
+__dbg = ["multiconst_proc_macros/__dbg"]
+
+[workspace]
 
 [dependencies]
+multiconst_proc_macros = {path = "./multiconst_proc_macros", version = "0.2.0"}
