@@ -100,8 +100,8 @@ fn type_alias_remainder_pattern() {
         assert_eq!(C, "21");
     }
     {
-        type X = (u8, u8, u8, u8, &'static str);
-        mc! { const (..): X = (3, 5, 8, 13, "21"); }
+        type _X = (u8, u8, u8, u8, &'static str);
+        mc! { const (..): _X = (3, 5, 8, 13, "21"); }
     }
 }
 

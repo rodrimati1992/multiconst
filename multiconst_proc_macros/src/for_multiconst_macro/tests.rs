@@ -69,7 +69,38 @@ fn top_level_remainder_pattern() {
 }
 
 #[test]
-fn visibility_attrs() {
+fn attributes_on_patterns() {
+    {
+        let out = process_str("#[foo] const #[bar] A: u32 = 100;").unwrap();
+        assert!(
+            out.consecutive_unspace(&["#[bar] #[foo] const A: u32"]),
+            "{}",
+            out
+        );
+    }
+    {
+        let out = process_str("#[foo] const (#[bar] A, #[baz] B): (u32, u32) = 100;").unwrap();
+        assert!(
+            out.consecutive_unspace(&["#[bar] #[foo] const A: u32", "#[baz] #[foo] const B: u32",]),
+            "{}",
+            out,
+        );
+    }
+    {
+        let out = process_str("#[foo] const [#[bar] A, #[baz] B @ ..]: [u32; 3] = 100;").unwrap();
+        assert!(
+            out.consecutive_unspace(&[
+                "#[bar] #[foo] const A: u32",
+                "#[baz] #[foo] const B: [u32;",
+            ]),
+            "{}",
+            out,
+        );
+    }
+}
+
+#[test]
+fn visibility_qualifiers() {
     {
         let out = process_str("const A: u32 = 100;").unwrap();
         assert!(!out.contains("pub"), "{}", out);

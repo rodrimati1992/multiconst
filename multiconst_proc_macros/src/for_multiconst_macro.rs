@@ -6,7 +6,7 @@ use crate::{
     parsing::ParseStream,
     pattern::{BindingAndType, Pattern},
     pattern_processing::{ExtractConstCtx, FieldType},
-    syntax::{self, tokenize_delim, tokenize_iter_delim, Crate, Spans},
+    syntax::{self, tokenize_delim, tokenize_iter_delim, Attributes, Crate, Spans},
     type_::Type,
     utils::{TokenStreamExt, TokenTreeExt, WithSpan},
     Error,
@@ -46,7 +46,7 @@ fn parse_one_constant(
     input: ParseStream<'_>,
     ts: &mut TokenStream,
 ) -> Result<(), Error> {
-    let outer_attrs = input.parse_attributes();
+    let outer_attrs = Attributes::parse(input);
     let vis = input.parse_vis();
     let const_token = input.parse_keyword("const")?;
     let pattern = Pattern::parse(input)?;
@@ -159,7 +159,8 @@ fn parse_one_constant(
         for (i, bat) in bats.into_iter().enumerate() {
             let nconst_span = bat.constant.span();
 
-            ts.extend(outer_attrs.clone());
+            ts.extend(bat.attrs.attrs);
+            ts.extend(outer_attrs.attrs.clone());
             ts.extend(vis.clone());
             ts.append_keyword("const", nconst_span);
             ts.append_one(bat.constant);

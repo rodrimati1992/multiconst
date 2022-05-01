@@ -6,7 +6,7 @@ use alloc::{format, string::String, vec::Vec};
 
 use crate::{
     parsing::{ParseBuffer, ParseStream},
-    syntax::{self, tokenize_delim, Crate, OpaqueType, Spans},
+    syntax::{self, tokenize_delim, Attributes, Crate, OpaqueType, Spans},
     utils::{ident_to_string_no_raw, TokenStreamExt, WithSpan},
     Error,
 };
@@ -42,6 +42,7 @@ impl FieldIdent {
 
 #[cfg_attr(feature = "__dbg", derive(Debug))]
 pub(crate) struct BindingAndType {
+    pub(crate) attrs: Attributes,
     // stores the ident of the user-defined constant
     //
     // if this is None, it's a destructured local,
@@ -56,6 +57,7 @@ pub(crate) struct BindingAndType {
 #[derive(Clone)]
 #[cfg_attr(feature = "__dbg", derive(Debug))]
 pub(crate) struct Binding {
+    pub(crate) attrs: Attributes,
     // stores the ident of the user-defined constant
     //
     // if this is None, it's a destructured local,
@@ -68,8 +70,13 @@ pub(crate) struct Binding {
 
 impl Binding {
     pub(crate) fn with_type(&self, type_: OpaqueType) -> BindingAndType {
-        let Self { constant, local } = self.clone();
+        let Self {
+            attrs,
+            constant,
+            local,
+        } = self.clone();
         BindingAndType {
+            attrs,
             constant,
             local,
             type_,
@@ -114,7 +121,7 @@ pub(crate) struct TuplePat {
 
 impl Pattern {
     pub(crate) fn parse(input: ParseStream<'_>) -> Result<Pattern, Error> {
-        match Self::parse_inner(input)? {
+        match Self::parse_inner(input, Attributes::new())? {
             Pattern::Rem(rem_pat) => Err(Error::new(
                 rem_pat.spans,
                 "`..` patterns are not allowed here ",
@@ -124,43 +131,29 @@ impl Pattern {
     }
 
     /// looser parsing that allows `..` patterns
-    fn parse_inner(input: ParseStream<'_>) -> Result<Pattern, Error> {
-        let first_tt = input.next().ok_or_else(|| {
-            Error::with_span(input.last_span(), "expected a pattern, found nothing")
-        })?;
+    fn parse_inner(input: ParseStream<'_>, mut attrs: Attributes) -> Result<Pattern, Error> {
+        use TokenTree as TT;
 
-        match first_tt {
-            TokenTree::Group(group) if group.delimiter() == Delimiter::None => {
-                Self::parse_inner(&mut ParseBuffer::new(group.stream()))
-            }
-            TokenTree::Group(group) if group.delimiter() == Delimiter::Bracket => {
-                parse_array(&group).map(Pattern::Array)
-            }
-            TokenTree::Group(group) if group.delimiter() == Delimiter::Parenthesis => {
-                parse_tuple(&group)
-            }
-            TokenTree::Ident(ident) => {
-                let mut as_string = ident_to_string_no_raw(&ident);
+        let start_span = input.span();
+        let peeked = input.peekn(3);
 
-                if let Some(_) = peek_parse_at_remainder(input)? {
-                    let binding = Some(make_binding(&ident, &mut as_string));
-                    let spans = Spans {
-                        start: ident.span(),
-                        end: input.last_span(),
-                    };
-                    Ok(Pattern::Rem(RemPat { spans, binding }))
-                } else {
-                    if as_string == "_" {
-                        Ok(Pattern::Underscore(ident.span()))
-                    } else {
-                        Ok(Pattern::Ident(make_binding(&ident, &mut as_string)))
-                    }
-                }
+        let make_err = || -> Result<Pattern, Error> {
+            Err(Error::with_span(
+                start_span,
+                "invalid pattern starting here",
+            ))
+        };
+
+        let ret = match peeked {
+            [TT::Punct(p), ..] if p.as_char() == '#' => {
+                attrs.append(Attributes::parse(input));
+                return Self::parse_inner(input, attrs);
             }
-            TokenTree::Punct(punct) if punct.as_char() == '.' => {
+            [TT::Punct(tt), ..] if tt.as_char() == '.' => {
+                input.parse_punct('.')?;
                 input.parse_punct('.')?;
                 let spans = Spans {
-                    start: punct.span(),
+                    start: start_span,
                     end: input.last_span(),
                 };
 
@@ -169,11 +162,58 @@ impl Pattern {
                     binding: None,
                 }))
             }
-            tt => Err(Error::with_span(
-                input.last_span(),
-                alloc::format!("expected a pattern, found: {:?}", tt),
+            [TT::Ident(ident), rem @ ..] => {
+                match rem {
+                    [TT::Punct(p0), ..] if p0.as_char() == '@' => {
+                        let mut as_string = ident_to_string_no_raw(ident);
+                        let binding = Some(make_binding(ident, attrs.take(), &mut as_string));
+                        input.next(); // skips the ident
+                        input.next(); // skips the @
+                        input.parse_punct('.')?;
+                        input.parse_punct('.')?;
+
+                        let spans = Spans {
+                            start: start_span,
+                            end: input.last_span(),
+                        };
+
+                        Ok(Pattern::Rem(RemPat { spans, binding }))
+                    }
+                    _ => {
+                        let mut as_string = ident_to_string_no_raw(ident);
+                        if as_string == "_" {
+                            input.next(); // skips the ident
+                            Ok(Pattern::Underscore(start_span))
+                        } else {
+                            let binding = make_binding(ident, attrs.take(), &mut as_string);
+                            input.next(); // skips the ident
+                            Ok(Pattern::Ident(binding))
+                        }
+                    }
+                }
+            }
+            [TT::Group(_), ..] => {
+                let group = input.parse_group()?;
+                match group.delimiter() {
+                    Delimiter::None => {
+                        Self::parse_inner(&mut ParseBuffer::new(group.stream()), Attributes::new())
+                    }
+                    Delimiter::Parenthesis => parse_tuple(&group),
+                    Delimiter::Bracket => parse_array(&group).map(Pattern::Array),
+                    Delimiter::Brace => make_err(),
+                }
+            }
+
+            [] => Err(Error::with_span(
+                start_span,
+                "expected aparse_punct pattern, found nothing",
             )),
-        }
+            _ => make_err(),
+        };
+
+        attrs.ensure_used()?;
+
+        ret
     }
 }
 
@@ -194,7 +234,7 @@ fn parse_sequence(
     let mut comma_sep = false;
 
     while !input.is_empty() {
-        let elem = Pattern::parse_inner(input)?;
+        let elem = Pattern::parse_inner(input, Attributes::new())?;
 
         if let Pattern::Rem(rempat) = &elem {
             if let Some(_) = rem {
@@ -272,23 +312,13 @@ fn parse_tuple(group: &Group) -> Result<Pattern, Error> {
     }
 }
 
-fn make_binding(ident: &Ident, as_string: &mut String) -> Binding {
+fn make_binding(ident: &Ident, attrs: Attributes, as_string: &mut String) -> Binding {
     as_string.push_str("__local_variable");
 
     Binding {
+        attrs,
         local: Ident::new(as_string, Span::mixed_site()).with_span(ident.span()),
         constant: ident.clone(),
-    }
-}
-
-fn peek_parse_at_remainder(input: ParseStream<'_>) -> Result<Option<()>, Error> {
-    if let Some(_) = input.peek_parse_punct('@') {
-        input.parse_punct('.')?;
-        input.parse_punct('.')?;
-
-        Ok(Some(()))
-    } else {
-        Ok(None)
     }
 }
 

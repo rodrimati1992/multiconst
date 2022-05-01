@@ -1,7 +1,7 @@
 use alloc::format;
 
 use used_proc_macro::{
-    token_stream::IntoIter, Delimiter, Ident, Punct, Span, TokenStream, TokenTree,
+    token_stream::IntoIter, Delimiter, Group, Ident, Punct, Span, TokenStream, TokenTree,
 };
 
 use crate::{
@@ -65,21 +65,6 @@ impl ParseBuffer {
     fn is_type_terminator(punct: &Punct) -> bool {
         let c = punct.as_char();
         matches!(c, ';' | ',' | '=')
-    }
-
-    pub(crate) fn parse_attributes(&mut self) -> TokenStream {
-        let mut ts = TokenStream::new();
-
-        while matches!(
-            self.peekn(2),
-            [tt0, tt1]
-            if tt0.is_punct('#') && tt1.is_group(Delimiter::Bracket)
-        ) {
-            ts.extend(self.next());
-            ts.extend(self.next());
-        }
-
-        ts
     }
 
     pub(crate) fn parse_vis(&mut self) -> TokenStream {
@@ -183,20 +168,16 @@ impl ParseBuffer {
         }
     }
 
-    pub(crate) fn peek_parse_punct(&mut self, c: char) -> Option<Punct> {
-        match self.peek() {
-            Some(TokenTree::Punct(x)) if x.as_char() == c => {
-                if let Some(TokenTree::Punct(x)) = self.next() {
-                    Some(x)
-                } else {
-                    unreachable!("{}", core::panic::Location::caller())
-                }
-            }
-            _ => None,
+    pub(crate) fn parse_group(&mut self) -> Result<Group, Error> {
+        match self.next() {
+            Some(TokenTree::Group(x)) => Ok(x),
+            x => Err(Error::with_span(
+                self.span_or_last(x),
+                "expected pairs of `()`, `[]`, `{}`, or a None-delimited group.",
+            )),
         }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn parse_ident(&mut self) -> Result<Ident, Error> {
         match self.next() {
             Some(TokenTree::Ident(x)) => Ok(x),

@@ -4,7 +4,7 @@ use used_proc_macro::{Delimiter, Group, Ident, Punct, Spacing, Span, TokenStream
 
 use crate::{
     parsing::ParseStream,
-    utils::{IsIdent, TokenStreamExt, WithSpan},
+    utils::{IsIdent, TokenStreamExt, TokenTreeExt, WithSpan},
     Error,
 };
 
@@ -135,4 +135,71 @@ impl Crate {
 pub(crate) struct OpaqueType {
     pub(crate) spans: Spans,
     pub(crate) ty: TokenStream,
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+/// Loosely parsed `#[...]`-style attributes
+#[cfg_attr(feature = "__dbg", derive(Debug))]
+#[derive(Clone)]
+pub(crate) struct Attributes {
+    pub(crate) attrs: TokenStream,
+    pub(crate) spans: Spans,
+}
+
+impl Attributes {
+    pub(crate) fn new() -> Self {
+        Self {
+            attrs: TokenStream::new(),
+            spans: Spans::from_one(Span::call_site()),
+        }
+    }
+
+    pub(crate) fn take(&mut self) -> Self {
+        let attrs = core::mem::replace(&mut self.attrs, TokenStream::new());
+        Self {
+            attrs,
+            spans: self.spans,
+        }
+    }
+
+    pub(crate) fn ensure_used(&self) -> Result<(), Error> {
+        if self.attrs.is_empty() {
+            Ok(())
+        } else {
+            Err(Error::new(self.spans, "these attributes are unused"))
+        }
+    }
+
+    /// Appens an attribute that comes after `self` into `self`.
+    pub(crate) fn append(&mut self, other: Attributes) {
+        if self.attrs.is_empty() {
+            *self = other;
+        } else {
+            self.attrs.extend(other.attrs);
+            self.spans.end = other.spans.end;
+        }
+    }
+
+    pub(crate) fn parse(input: ParseStream<'_>) -> Self {
+        let mut ts = TokenStream::new();
+
+        let start = input.span();
+
+        while matches!(
+            input.peekn(2),
+            [tt0, tt1]
+            if tt0.is_punct('#') && tt1.is_group(Delimiter::Bracket)
+        ) {
+            ts.extend(input.next());
+            ts.extend(input.next());
+        }
+
+        let end = input.last_span();
+
+        Self {
+            attrs: ts,
+            spans: Spans { start, end },
+        }
+    }
 }
