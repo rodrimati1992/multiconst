@@ -1,0 +1,25 @@
+[package]
+name = "multiconst_proc_macros"
+version = "0.2.0"
+authors = ["rodrimati1992 <rodrimatt1985@gmail.com>"]
+edition = "2018"
+license="Zlib"
+description = "implementation detail of multiconst"
+keywords = []
+categories = []
+include = [
+    "Cargo.toml", 
+    "src/**/*.rs", 
+    "LICENSE-ZLIB",
+]
+
+[features]
+__dbg = []
+
+[dependencies]
+
+[dev-dependencies]
+proc-macro2 = "1.0.37"
+
+[lib]
+proc-macro = true
