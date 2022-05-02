@@ -1,0 +1,17 @@
+error[E0277]: the trait bound `(): FieldType<Usize<0_usize>>` is not satisfied
+ --> tests/tests_mod/ui/post_expansion_type_errors_2_err.rs:5:12
+  |
+5 |     const (A300, A301): Unit = ();
+  |            ^^^^ the trait `FieldType<Usize<0_usize>>` is not implemented for `()`
+  |
+  = note: required because of the requirements on the impl of `FieldType<(Usize<0_usize>,)>` for `()`
+  = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `(): FieldType<Usize<1_usize>>` is not satisfied
+ --> tests/tests_mod/ui/post_expansion_type_errors_2_err.rs:5:18
+  |
+5 |     const (A300, A301): Unit = ();
+  |                  ^^^^ the trait `FieldType<Usize<1_usize>>` is not implemented for `()`
+  |
+  = note: required because of the requirements on the impl of `FieldType<(Usize<1_usize>,)>` for `()`
+  = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)

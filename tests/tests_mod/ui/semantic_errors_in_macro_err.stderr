@@ -1,0 +1,31 @@
+error: cannot infer length because the pattern contains a `..`
+ --> tests/tests_mod/ui/semantic_errors_in_macro_err.rs:3:23
+  |
+3 |     const [A100, ..]: [u32; _] = [3, 5, 8];
+  |                       ^^^^^^^^
+  |
+  = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: cannot use `..` multiple times in array patterns
+ --> tests/tests_mod/ui/semantic_errors_in_macro_err.rs:9:22
+  |
+9 |     const [.., A100, ..]: [u32; _] = [3, 5, 8];
+  |                      ^^
+  |
+  = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: cannot use `@ ..` in tuple patterns
+  --> tests/tests_mod/ui/semantic_errors_in_macro_err.rs:15:18
+   |
+15 |     const (A100, A @ ..): (u32, u32, u32, u32) = (3, 5, 8, 13);
+   |                  ^^^^^^
+   |
+   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: cannot use `..` multiple times in tuple patterns
+  --> tests/tests_mod/ui/semantic_errors_in_macro_err.rs:20:22
+   |
+20 |     const (.., A100, ..): (u32, u32, u32, u32) = (3, 5, 8, 13);
+   |                      ^^
+   |
+   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)

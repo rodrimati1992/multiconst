@@ -1,0 +1,36 @@
+error[E0308]: mismatched types
+ --> tests/tests_mod/ui/post_expansion_type_errors_err.rs:6:23
+  |
+6 |     const A000: u32 = ();
+  |                 ---   ^^ expected `u32`, found `()`
+  |                 |
+  |                 expected due to this
+
+error[E0308]: mismatched types
+  --> tests/tests_mod/ui/post_expansion_type_errors_err.rs:12:11
+   |
+12 |     const (): Pair = (3, 3);
+   |           ^^  ---- expected due to this
+   |           |
+   |           expected tuple, found `()`
+   |
+   = note:  expected tuple `(u32, u32)`
+           found unit type `()`
+
+error[E0527]: pattern requires 3 elements but array has 2
+  --> tests/tests_mod/ui/post_expansion_type_errors_err.rs:18:11
+   |
+18 |     const [A1, B1, C1]: [(); 2] = [(),()];
+   |           ^^^^^^^^^^^^ expected 2 elements
+
+error[E0528]: pattern requires at least 3 elements but array has 2
+  --> tests/tests_mod/ui/post_expansion_type_errors_err.rs:23:11
+   |
+23 |     const [A11, B11, C11, ..]: [(); 2] = [(),()];
+   |           ^^^^^^^^^^^^^^^^^^^ pattern cannot match array of 2 elements
+
+error[E0527]: pattern requires 3 elements but array has 4
+  --> tests/tests_mod/ui/post_expansion_type_errors_err.rs:28:11
+   |
+28 |     const [A2, B2, C2]: [(); 4] = [(),(),(),()];
+   |           ^^^^^^^^^^^^ expected 4 elements

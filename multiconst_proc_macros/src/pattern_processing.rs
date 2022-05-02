@@ -12,6 +12,7 @@ use crate::{
     Error,
 };
 
+#[cfg_attr(feature = "__dbg", derive(Debug))]
 #[derive(Copy, Clone)]
 pub(crate) enum FieldType<'a> {
     Direct(&'a RealType),
@@ -131,7 +132,7 @@ pub(crate) fn real_type_from(pattern: &Pattern, type_: ParsedType) -> Result<Rea
             let len = match (rem, arr_ty.len) {
                 (_, Some(len)) => len,
                 (Some(_), None) => {
-                    let msg = "cannot infer length when the array pattern contains a `..`";
+                    let msg = "cannot infer length because the pattern contains a `..`";
                     return Err(Error::with_span(arr_ty.brackets, msg));
                 }
                 (None, None) => {
@@ -149,6 +150,23 @@ pub(crate) fn real_type_from(pattern: &Pattern, type_: ParsedType) -> Result<Rea
         }
         (Pattern::Tuple(tup_pat), Type::Tuple(tup_ty)) => {
             let mut elem_tys = Vec::new();
+
+            {
+                let check = if tup_pat.rem.is_none() {
+                    tup_pat.elems.len() != tup_ty.elem_tys.len()
+                } else {
+                    tup_pat.elems.len() - 1 > tup_ty.elem_tys.len()
+                };
+
+                if check {
+                    let msg = alloc::format!(
+                        "tuple pattern has {} elements, but type has {}",
+                        tup_pat.elems.len(),
+                        tup_ty.elem_tys.len(),
+                    );
+                    return Err(Error::with_span(tup_pat.parentheses, msg));
+                }
+            }
 
             let (before_elems, taken, skipped, after_elems) = if let Some(pos) = tup_pat.rem {
                 let skipped = tup_ty
@@ -281,13 +299,12 @@ fn process_tup_pat(
 ) -> Result<(), Error> {
     let ExtractConstCtx { crate_kw, .. } = *pctx;
 
-    let spans = Spans::from_one(tup_pat.parentheses);
-
     let rem_pos = tup_pat.rem.unwrap_or_else(|| tup_pat.elems.len());
     let trailing_pattern_count = tup_pat.elems.len() - rem_pos;
 
     let mut i = 0;
     for elem in tup_pat.elems.iter() {
+        let spans = elem.spans();
         let field_name;
         let subfield_ty = match type_ {
             FieldType::Direct(Type::Tuple(TupleType { elem_tys, .. })) => {

@@ -48,13 +48,6 @@ impl ParseBuffer {
         }
     }
 
-    fn span_or_last(&self, span: Option<TokenTree>) -> Span {
-        match span {
-            Some(x) => x.span(),
-            None => self.last_span,
-        }
-    }
-
     pub(crate) fn error<S>(&self, msg: S) -> crate::Error
     where
         S: core::fmt::Display,
@@ -91,7 +84,7 @@ impl ParseBuffer {
         let mut out = TokenStream::new();
 
         if self.is_empty() {
-            return Err(self.error("expected type, found no tokens"));
+            return Err(self.error("expected type after this"));
         }
 
         let start_span = self.span();
@@ -147,23 +140,17 @@ impl ParseBuffer {
     pub(crate) fn parse_punct(&mut self, c: char) -> Result<Punct, Error> {
         match self.next() {
             Some(TokenTree::Punct(x)) if x.as_char() == c => Ok(x),
-            Some(x) => Err(Error::with_span(
-                x.span(),
-                &format!("expected a '{}' token", c),
-            )),
+            Some(tt) => Err(Error::with_span(tt.span(), format!("expected a `{}`", c))),
             None => Err(Error::with_span(
                 self.last_span(),
-                &format!("expected a '{}' token", c),
+                format!("expected a `{}` after this", c),
             )),
         }
     }
     pub(crate) fn parse_opt_punct(&mut self, c: char) -> Result<Option<Punct>, Error> {
         match self.next() {
             Some(TokenTree::Punct(x)) if x.as_char() == c => Ok(Some(x)),
-            Some(x) => Err(Error::with_span(
-                x.span(),
-                &format!("expected a '{}' token", c),
-            )),
+            Some(tt) => Err(Error::with_span(tt.span(), &format!("expected a `{}`", c))),
             None => Ok(None),
         }
     }
@@ -171,9 +158,13 @@ impl ParseBuffer {
     pub(crate) fn parse_group(&mut self) -> Result<Group, Error> {
         match self.next() {
             Some(TokenTree::Group(x)) => Ok(x),
-            x => Err(Error::with_span(
-                self.span_or_last(x),
-                "expected pairs of `()`, `[]`, `{}`, or a None-delimited group.",
+            Some(tt) => Err(Error::with_span(
+                tt.span(),
+                "expected pairs of `()`, `[]`, `{}`, or a None-delimited group",
+            )),
+            None => Err(Error::with_span(
+                self.last_span(),
+                "expected pairs of `()`, `[]`, `{}`, or a None-delimited group after this",
             )),
         }
     }
@@ -181,9 +172,10 @@ impl ParseBuffer {
     pub(crate) fn parse_ident(&mut self) -> Result<Ident, Error> {
         match self.next() {
             Some(TokenTree::Ident(x)) => Ok(x),
-            x => Err(Error::with_span(
-                self.span_or_last(x),
-                "expected an identifier",
+            Some(tt) => Err(Error::with_span(tt.span(), "expected an identifier")),
+            None => Err(Error::with_span(
+                self.last_span(),
+                "expected an identifier after this",
             )),
         }
     }
@@ -191,9 +183,13 @@ impl ParseBuffer {
     pub(crate) fn parse_keyword(&mut self, keyword: &str) -> Result<Ident, Error> {
         match self.next() {
             Some(TokenTree::Ident(x)) if x.is_ident(keyword) => Ok(x),
-            x => Err(Error::with_span(
-                self.span_or_last(x),
+            Some(tt) => Err(Error::with_span(
+                tt.span(),
                 &format!("expected the `{}` keyword", keyword),
+            )),
+            None => Err(Error::with_span(
+                self.last_span(),
+                &format!("expected the `{}` keyword after this", keyword),
             )),
         }
     }

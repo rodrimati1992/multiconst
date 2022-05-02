@@ -51,6 +51,7 @@
 //! [multiconst-examples]: crate::multiconst#examples
 
 #![no_std]
+#![forbid(unsafe_code)]
 
 mod field_querying;
 

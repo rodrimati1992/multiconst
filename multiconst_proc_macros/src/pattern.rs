@@ -11,6 +11,7 @@ use crate::{
     Error,
 };
 
+#[cfg_attr(feature = "__dbg", derive(Debug))]
 pub(crate) enum FieldIdent {
     Numeric(usize, Spans),
     /// A numeric identifier, determined by a constant in the expanded code.
@@ -206,7 +207,7 @@ impl Pattern {
 
             [] => Err(Error::with_span(
                 start_span,
-                "expected aparse_punct pattern, found nothing",
+                "expected a pattern after this",
             )),
             _ => make_err(),
         };
@@ -240,7 +241,7 @@ fn parse_sequence(
             if let Some(_) = rem {
                 return Err(Error::new(
                     elem.spans(),
-                    format!("cannot use `..` patterns multiple times in {}", type_constr),
+                    format!("cannot use `..` multiple times in {}", type_constr),
                 ));
             }
 
@@ -287,13 +288,13 @@ fn parse_tuple(group: &Group) -> Result<Pattern, Error> {
         rem,
         comma_sep,
     } = parse_sequence(
-        "array patterns",
+        "tuple patterns",
         &mut ParseBuffer::new(group.stream()),
         &mut |rem| {
             has_remainder = true;
             match rem.binding {
                 Some(_) => {
-                    let msg = "cannot use `@ ..` patterns in tuple patterns";
+                    let msg = "cannot use `@ ..` in tuple patterns";
                     Err(Error::new(rem.spans, msg))
                 }
                 None => Ok(()),
@@ -301,7 +302,7 @@ fn parse_tuple(group: &Group) -> Result<Pattern, Error> {
         },
     )?;
 
-    if comma_sep || has_remainder {
+    if comma_sep || has_remainder || elems.is_empty() {
         Ok(Pattern::Tuple(TuplePat {
             parentheses,
             elems,

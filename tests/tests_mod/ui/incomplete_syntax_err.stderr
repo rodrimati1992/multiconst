@@ -1,0 +1,55 @@
+error: expected the `const` keyword after this
+ --> tests/tests_mod/ui/incomplete_syntax_err.rs:2:6
+  |
+2 |     #[]
+  |      ^^
+  |
+  = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected a pattern after this
+ --> tests/tests_mod/ui/incomplete_syntax_err.rs:6:5
+  |
+6 |     const
+  |     ^^^^^
+  |
+  = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected a `:` after this
+  --> tests/tests_mod/ui/incomplete_syntax_err.rs:10:11
+   |
+10 |     const A
+   |           ^
+   |
+   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected type after this
+  --> tests/tests_mod/ui/incomplete_syntax_err.rs:14:12
+   |
+14 |     const B:
+   |            ^
+   |
+   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected a `=` after this
+  --> tests/tests_mod/ui/incomplete_syntax_err.rs:18:14
+   |
+18 |     const C: u32
+   |              ^^^
+   |
+   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected expression after this
+  --> tests/tests_mod/ui/incomplete_syntax_err.rs:22:18
+   |
+22 |     const D: u32 =
+   |                  ^
+   |
+   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected a `;` after this
+  --> tests/tests_mod/ui/incomplete_syntax_err.rs:26:20
+   |
+26 |     const E: u32 = 10
+   |                    ^^
+   |
+   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)

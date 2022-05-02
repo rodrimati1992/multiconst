@@ -21,8 +21,14 @@ include = [
 
 [features]
 __dbg = ["multiconst_proc_macros/__dbg"]
+__ui_tests = []
 
 [workspace]
 
 [dependencies]
 multiconst_proc_macros = {path = "./multiconst_proc_macros", version = "0.2.0"}
+
+[dev-dependencies]
+trybuild = "1.0"
+
+

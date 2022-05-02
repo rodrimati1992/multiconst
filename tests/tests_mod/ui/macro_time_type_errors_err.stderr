@@ -1,0 +1,31 @@
+error: tuple pattern has 2 elements, but type has 0
+ --> tests/tests_mod/ui/macro_time_type_errors_err.rs:3:11
+  |
+3 |     const (A200, A201): () = ();
+  |           ^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: tuple pattern has 0 elements, but type has 2
+ --> tests/tests_mod/ui/macro_time_type_errors_err.rs:8:11
+  |
+8 |     const (): (u32, u32) = ();
+  |           ^^
+  |
+  = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: mismatched pattern and type
+  --> tests/tests_mod/ui/macro_time_type_errors_err.rs:13:11
+   |
+13 |     const [A]: (u32,) = [10];
+   |           ^^^
+   |
+   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: mismatched pattern and type
+  --> tests/tests_mod/ui/macro_time_type_errors_err.rs:18:11
+   |
+18 |     const (A,): [u32; 1] = [10];
+   |           ^^^^
+   |
+   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
