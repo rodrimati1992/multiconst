@@ -1,0 +1,31 @@
+error: expected either an untyped numeric literal or an identifier
+ --> tests/tests_mod/ui/field_macro_err.rs:4:19
+  |
+4 |     let _: field!("hello");
+  |                   ^^^^^^^
+  |
+  = note: this error originates in the macro `field` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected either an untyped numeric literal or an identifier
+ --> tests/tests_mod/ui/field_macro_err.rs:5:19
+  |
+5 |     let _: field!(0x100);
+  |                   ^^^^^
+  |
+  = note: this error originates in the macro `field` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected either an untyped numeric literal or an identifier
+ --> tests/tests_mod/ui/field_macro_err.rs:6:19
+  |
+6 |     let _: field!(-1);
+  |                   ^
+  |
+  = note: this error originates in the macro `field` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected either an untyped numeric literal or an identifier
+ --> tests/tests_mod/ui/field_macro_err.rs:7:19
+  |
+7 |     let _: field!(10usize);
+  |                   ^^^^^^^
+  |
+  = note: this error originates in the macro `field` (in Nightly builds, run with -Z macro-backtrace for more info)

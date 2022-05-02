@@ -1,43 +1,13 @@
-use used_proc_macro::{
-    Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree,
-};
+use used_proc_macro::{Delimiter, Group, Ident, Punct, Spacing, Span, TokenStream, TokenTree};
 
 use alloc::{format, string::String, vec::Vec};
 
 use crate::{
     parsing::{ParseBuffer, ParseStream},
-    syntax::{self, tokenize_delim, Attributes, Crate, OpaqueType, Spans},
+    syntax::{self, tokenize_delim, Attributes, OpaqueType, Spans},
     utils::{ident_to_string_no_raw, TokenStreamExt, WithSpan},
     Error,
 };
-
-#[cfg_attr(feature = "__dbg", derive(Debug))]
-pub(crate) enum FieldIdent {
-    Numeric(usize, Spans),
-    /// A numeric identifier, determined by a constant in the expanded code.
-    NumericConst(TokenStream, Spans),
-}
-
-impl FieldIdent {
-    pub(crate) fn to_token_stream(&self, crate_kw: &Crate, ts: &mut TokenStream) {
-        match *self {
-            FieldIdent::Numeric(n, spans) => {
-                crate_kw.item_to_ts("Usize", spans, ts);
-
-                ts.append_one(Punct::new('<', Spacing::Joint).with_span(spans.start));
-                ts.append_one(Literal::usize_unsuffixed(n).with_span(spans.end));
-                ts.append_one(Punct::new('>', Spacing::Joint).with_span(spans.end));
-            }
-            FieldIdent::NumericConst(ref x, spans) => {
-                crate_kw.item_to_ts("Usize", spans, ts);
-
-                ts.append_one(Punct::new('<', Spacing::Joint).with_span(spans.start));
-                ts.append_one(Group::new(Delimiter::Brace, x.clone()));
-                ts.append_one(Punct::new('>', Spacing::Joint).with_span(spans.end));
-            }
-        }
-    }
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 

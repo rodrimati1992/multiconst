@@ -1,12 +1,96 @@
 //! Syntax-related types and functions, no extension traits.
 
-use used_proc_macro::{Delimiter, Group, Ident, Punct, Spacing, Span, TokenStream, TokenTree};
+use used_proc_macro::{
+    Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree,
+};
+
+use alloc::{rc::Rc, string::ToString};
 
 use crate::{
     parsing::ParseStream,
-    utils::{IsIdent, TokenStreamExt, TokenTreeExt, WithSpan},
+    utils::{self, IsIdent, TokenStreamExt, TokenTreeExt, WithSpan},
     Error,
 };
+
+///////////////////////////////////////////////////////////////////////////////
+
+#[cfg_attr(feature = "__dbg", derive(Debug))]
+pub(crate) enum FieldIdent {
+    Numeric(usize, Spans),
+    Alphabetic(Rc<str>, Spans),
+    /// A numeric identifier, determined by a constant in the expanded code.
+    NumericConst(TokenStream, Spans),
+}
+
+impl FieldIdent {
+    pub(crate) fn to_token_stream(&self, crate_kw: &Crate, ts: &mut TokenStream) {
+        match *self {
+            FieldIdent::Numeric(n, spans) => {
+                crate_kw.item_to_ts("Usize", spans, ts);
+
+                ts.append_one(Punct::new('<', Spacing::Joint).with_span(spans.start));
+                ts.append_one(Literal::usize_unsuffixed(n).with_span(spans.end));
+                ts.append_one(Punct::new('>', Spacing::Joint).with_span(spans.end));
+            }
+            FieldIdent::Alphabetic(ref str, spans) => {
+                let mut chars = str.chars();
+                let span = spans.start;
+
+                crate_kw.item_to_ts("TIdent", spans, ts);
+
+                ts.append_one(Punct::new('<', Spacing::Joint).with_span(span));
+
+                tokenize_delim(Delimiter::Parenthesis, span, ts, |ts| {
+                    while !chars.as_str().is_empty() {
+                        crate_kw.item_to_ts("TChars", spans, ts);
+
+                        ts.append_one(Punct::new('<', Spacing::Joint).with_span(span));
+
+                        chars
+                            .by_ref()
+                            .chain(core::iter::repeat(' '))
+                            .take(8)
+                            .for_each(|c| {
+                                ts.append_one(Literal::character(c).with_span(span));
+                                ts.append_one(Punct::new(',', Spacing::Joint).with_span(span));
+                            });
+
+                        ts.append_one(Punct::new('>', Spacing::Joint).with_span(span));
+                        ts.append_one(Punct::new(',', Spacing::Joint).with_span(span));
+                    }
+                });
+
+                ts.append_one(Punct::new('>', Spacing::Joint).with_span(span));
+            }
+            FieldIdent::NumericConst(ref x, spans) => {
+                crate_kw.item_to_ts("Usize", spans, ts);
+
+                ts.append_one(Punct::new('<', Spacing::Joint).with_span(spans.start));
+                ts.append_one(Group::new(Delimiter::Brace, x.clone()));
+                ts.append_one(Punct::new('>', Spacing::Joint).with_span(spans.end));
+            }
+        }
+    }
+
+    pub(crate) fn parse(input: ParseStream<'_>) -> Result<Self, Error> {
+        const EXPECTED: &str = "expected either an untyped numeric literal or an identifier";
+
+        match input.next() {
+            Some(TokenTree::Literal(lit)) => match lit.to_string().parse::<usize>() {
+                Ok(x) => Ok(FieldIdent::Numeric(x, Spans::from_one(lit.span()))),
+                Err(_) => Err(Error::with_span(lit.span(), EXPECTED)),
+            },
+            Some(TokenTree::Ident(ident)) => Ok(Self::from_ident(&ident)),
+            Some(tt) => Err(Error::with_span(tt.span(), EXPECTED)),
+            None => Err(Error::with_span(Span::call_site(), EXPECTED)),
+        }
+    }
+
+    pub(crate) fn from_ident(ident: &Ident) -> Self {
+        let s = Rc::<str>::from(utils::ident_to_string_no_raw(&ident));
+        FieldIdent::Alphabetic(s, Spans::from_one(ident.span()))
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 

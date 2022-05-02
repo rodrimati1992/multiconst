@@ -5,8 +5,8 @@ use core::marker::PhantomData;
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    pattern::{ArrayPat, BindingAndType, FieldIdent, Pattern, RemPat, TuplePat},
-    syntax::{self, Crate, OpaqueType, Spans},
+    pattern::{ArrayPat, BindingAndType, Pattern, RemPat, TuplePat},
+    syntax::{self, Crate, FieldIdent, OpaqueType, Spans},
     type_::{ArrayType, ParsedType, RealType, TupleType, Type},
     utils::{TokenStreamExt, WithSpan},
     Error,
