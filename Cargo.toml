@@ -1,6 +1,6 @@
 [package]
 name = "multiconst"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2018"
 authors = ["rodrimati1992 <rodrimatt1985@gmail.com>"]
 rust-version = "1.51.0"
@@ -26,7 +26,7 @@ __ui_tests = []
 [workspace]
 
 [dependencies]
-multiconst_proc_macros = {path = "./multiconst_proc_macros", version = "0.2.0"}
+multiconst_proc_macros = {path = "./multiconst_proc_macros", version = "=0.2.1"}
 
 [dev-dependencies]
 trybuild = "1.0"
