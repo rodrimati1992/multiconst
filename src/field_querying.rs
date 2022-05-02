@@ -1,3 +1,5 @@
+//! Types and traits for querying the types of fields/elements.
+
 mod field_type;
 
 pub use self::field_type::{FieldType, GetFieldType};
@@ -25,7 +27,8 @@ pub struct Chars<
 >;
 */
 
-// type-level usize
+/// Represents a type-level usize, used to query the type of positional fields
+/// (tuple fields).
 pub struct Usize<const N: usize>;
 
 ///////////////////////////////////////////////////////////////////////////

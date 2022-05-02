@@ -193,12 +193,6 @@ impl RealType {
 }
 
 impl ArrayType {
-    pub(crate) fn to_opaque(&self) -> OpaqueType {
-        OpaqueType {
-            spans: Spans::from_one(self.brackets),
-            ty: self.to_tokens(),
-        }
-    }
     pub(crate) fn to_token_stream(&self, ts: &mut TokenStream) {
         let ArrayType {
             brackets,
@@ -212,21 +206,9 @@ impl ArrayType {
             ts.extend(len.clone());
         });
     }
-    pub(crate) fn to_tokens(&self) -> TokenStream {
-        let mut ts = TokenStream::new();
-        self.to_token_stream(&mut ts);
-        ts
-    }
 }
 
 impl TupleType {
-    pub(crate) fn to_opaque(&self) -> OpaqueType {
-        OpaqueType {
-            spans: Spans::from_one(self.parentheses),
-            ty: self.to_tokens(),
-        }
-    }
-
     pub(crate) fn to_token_stream(&self, ts: &mut TokenStream) {
         let TupleType {
             parentheses,
@@ -243,11 +225,5 @@ impl TupleType {
                 ts.append_one(Punct::new(',', Spacing::Alone).with_span(*parentheses));
             },
         );
-    }
-
-    pub(crate) fn to_tokens(&self) -> TokenStream {
-        let mut ts = TokenStream::new();
-        self.to_token_stream(&mut ts);
-        ts
     }
 }
