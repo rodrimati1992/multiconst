@@ -43,3 +43,10 @@ pub fn __priv_field_proc_macro(args: TokenStream) -> TokenStream {
         .unwrap_or_else(|e| e)
         .into()
 }
+
+#[proc_macro]
+pub fn __priv_field_name_aliases_proc_macro(args: TokenStream) -> TokenStream {
+    crate::for_field_macros::field_name_aliases_macro_impl(args.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}

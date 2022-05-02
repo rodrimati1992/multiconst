@@ -62,7 +62,9 @@ mod utils_for_macros;
 
 #[doc(hidden)]
 pub mod __ {
-    pub use multiconst_proc_macros::{__priv_field_proc_macro, __priv_multiconst_proc_macro};
+    pub use multiconst_proc_macros::{
+        __priv_field_name_aliases_proc_macro, __priv_field_proc_macro, __priv_multiconst_proc_macro,
+    };
 
     pub use crate::{
         field_querying::{GetFieldType, TChars, TIdent, Usize},
