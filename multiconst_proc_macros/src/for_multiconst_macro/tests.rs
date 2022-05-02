@@ -1,5 +1,3 @@
-use used_proc_macro::{Ident, Span, TokenStream, TokenTree};
-
 use crate::test_utils::StrExt;
 
 use alloc::string::{String, ToString};
@@ -44,7 +42,7 @@ fn mismatched_tuple_lengths() {
     {
         let out = process_str("const (A, B): () = expr;").unwrap_err();
         assert!(
-            out.consecutive_in_self(&["element", "no", "type"]),
+            out.consecutive_in_self(&["pattern has 2", "but type has 0"]),
             "{}",
             out
         );
@@ -52,12 +50,19 @@ fn mismatched_tuple_lengths() {
     {
         let out = process_str("const (A, B): (u32,) = expr;").unwrap_err();
         assert!(
-            out.consecutive_in_self(&["element", "no", "type"]),
+            out.consecutive_in_self(&["pattern has 2", "but type has 1"]),
             "{}",
             out
         );
     }
-    process_str("const (A, B): (u32, u32, u32) = expr;").unwrap();
+    {
+        let out = process_str("const (A, B): (u32, u32, u32) = expr;").unwrap_err();
+        assert!(
+            out.consecutive_in_self(&["pattern has 2", "but type has 3"]),
+            "{}",
+            out
+        );
+    }
 }
 
 #[test]
