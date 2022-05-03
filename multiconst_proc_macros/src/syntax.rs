@@ -12,6 +12,64 @@ use crate::{
     Error,
 };
 
+#[cfg(test)]
+mod testing;
+
+///////////////////////////////////////////////////////////////////////////////
+
+pub(crate) fn is_path_separator(p0: &Punct, p1: &Punct) -> bool {
+    p0.as_char() == ':'
+        && p0.spacing() == Spacing::Joint
+        && p1.as_char() == ':'
+        && p1.spacing() == Spacing::Alone
+}
+
+enum PathToken {
+    Type,
+    Other,
+}
+
+fn is_path_token(tt: Option<&TokenTree>) -> Option<PathToken> {
+    match tt {
+        Some(TokenTree::Ident(_)) => Some(PathToken::Other),
+        Some(TokenTree::Punct(p)) => match p.as_char() {
+            '<' => Some(PathToken::Type),
+            ':' => Some(PathToken::Other),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// Loose path parsing
+pub(crate) struct Path {
+    pub(crate) tokens: TokenStream,
+}
+
+impl Path {
+    pub(crate) fn parse(input: ParseStream<'_>) -> Result<Path, Error> {
+        let mut out = TokenStream::new();
+
+        while let Some(pt) = is_path_token(input.peek()) {
+            match pt {
+                PathToken::Type => {
+                    let ot = input.parse_opaque_type_with(|_| true)?;
+                    out.extend(ot.ty)
+                }
+                PathToken::Other => {
+                    out.extend(input.next());
+                }
+            }
+        }
+
+        if out.is_empty() {
+            return Err(input.error("expected path after this token"));
+        }
+
+        Ok(Path { tokens: out })
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #[cfg_attr(feature = "__dbg", derive(Debug))]
@@ -177,6 +235,13 @@ pub(crate) struct Crate {
 }
 
 impl Crate {
+    #[cfg(test)]
+    pub(crate) fn new_dummy() -> Self {
+        Crate {
+            ident: Ident::new("crate", Span::call_site()),
+        }
+    }
+
     /// outputs the path to the item at `multiconst::__::{item}`
     pub(crate) fn item_to_ts(&self, item: &str, spans: Spans, ts: &mut TokenStream) {
         ts.append_array([
