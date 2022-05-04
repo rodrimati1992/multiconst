@@ -88,10 +88,23 @@ impl<'a> FieldType<'a> {
 
 pub(crate) struct ExtractConstCtx<'a> {
     pub(crate) bats: &'a mut Vec<BindingAndType>,
+    pub(crate) checked_locals: &'a mut Vec<CheckedLocal>,
     /// The length of the `..` pattern in tuple patterns
     pub(crate) tuple_rem_lens: &'a mut Vec<TokenStream>,
     pub(crate) tuple_rem_pat_const: &'a Ident,
     pub(crate) crate_kw: &'a Crate,
+}
+
+pub(crate) struct CheckedLocal {
+    pub(crate) binding: Ident,
+    pub(crate) type_: OpaqueType,
+}
+
+/// Whether a pattern is the whole pattern for a struct field.
+#[derive(Copy, Clone)]
+pub(crate) enum WholeFieldPat {
+    Yes,
+    No,
 }
 
 pub(crate) fn find_first_const_ident(pattern: &Pattern) -> Option<&Ident> {
@@ -217,6 +230,7 @@ pub(crate) fn real_type_from(pattern: &Pattern, type_: ParsedType) -> Result<Rea
 pub(crate) fn extract_const_names_tys(
     pattern: &Pattern,
     type_: FieldType<'_>,
+    in_struct: WholeFieldPat,
     pctx: &mut ExtractConstCtx<'_>,
 ) -> Result<(), Error> {
     let ExtractConstCtx { crate_kw, .. } = *pctx;
@@ -226,6 +240,24 @@ pub(crate) fn extract_const_names_tys(
             let type_ = type_.to_opaque(crate_kw);
 
             pctx.bats.push(pat_ident.with_type(type_));
+            Ok(())
+        }
+        Pattern::Underscore(b) => {
+            // Only ignore the type when it's an ignored struct field that
+            // doesn't have a type annotation.
+            //
+            // `_` patterns nested in other patterns do assert the type though.
+            let type_ = match (type_, in_struct) {
+                (FieldType::Direct(ty), _) => ty.to_opaque(),
+                (FieldType::Derived { .. }, WholeFieldPat::No) => type_.to_opaque(crate_kw),
+                (FieldType::Derived { .. }, WholeFieldPat::Yes) => return Ok(()),
+            };
+
+            pctx.checked_locals.push(CheckedLocal {
+                binding: b.local.clone(),
+                type_,
+            });
+
             Ok(())
         }
         Pattern::Struct(struct_pat) => {
@@ -239,14 +271,13 @@ pub(crate) fn extract_const_names_tys(
                     },
                 };
 
-                extract_const_names_tys(&elem.pattern, subfield_ty, pctx)?;
+                extract_const_names_tys(&elem.pattern, subfield_ty, WholeFieldPat::Yes, pctx)?;
             }
             Ok(())
         }
         Pattern::Array(arr_pat) => process_arr_pat(arr_pat, type_, pctx),
         Pattern::Tuple(tup_pat) => process_tup_pat(tup_pat, type_, pctx),
         Pattern::Rem { .. } => unreachable!("{}", core::panic::Location::caller()),
-        Pattern::Underscore { .. } => Ok(()),
     }
 }
 
@@ -310,7 +341,7 @@ fn process_arr_pat(
                 pctx.bats.push(binding.with_type(elem_ty));
             }
             Pattern::Rem(_) => {}
-            _ => extract_const_names_tys(elem, subfield_ty, pctx)?,
+            _ => extract_const_names_tys(elem, subfield_ty, WholeFieldPat::No, pctx)?,
         }
     }
     Ok(())
@@ -388,7 +419,7 @@ fn process_tup_pat(
             }
         };
 
-        extract_const_names_tys(elem, subfield_ty, pctx)?;
+        extract_const_names_tys(elem, subfield_ty, WholeFieldPat::No, pctx)?;
         i += 1;
     }
     Ok(())

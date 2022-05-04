@@ -39,4 +39,22 @@ multiconst::multiconst!{
 }
 
 
+
+// ensure that type annotations cause a type mismatch when they should
+multiconst::multiconst!{
+    const _: () = 100;
+}
+
+// ensure that type annotations cause a type mismatch when they should
+multiconst::multiconst!{
+    const std::ops::Range{start: _: u32, ..}: std::ops::Range<u8> = 3u8..5;
+}
+
+// ensure that type annotations cause a type mismatch when they should
+multiconst::multiconst!{
+    const std::ops::Range{start: [_, _]: [u32; 2], ..}: std::ops::Range<[u8; 2]> = 
+        [0u8; 2]..[0u8; 2];
+}
+
+
 fn main(){}

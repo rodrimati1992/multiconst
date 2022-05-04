@@ -5,7 +5,7 @@ use alloc::{string::String, vec::Vec};
 use crate::{
     parsing::ParseStream,
     pattern::{BindingAndType, Pattern},
-    pattern_processing::{ExtractConstCtx, FieldType},
+    pattern_processing::{CheckedLocal, ExtractConstCtx, FieldType, WholeFieldPat},
     syntax::{self, tokenize_delim, tokenize_iter_delim, Attributes, Crate, Spans},
     type_::Type,
     utils::{TokenStreamExt, TokenTreeExt, WithSpan},
@@ -83,15 +83,18 @@ fn parse_one_constant(
 
     let mut bats: Vec<BindingAndType> = Vec::new();
     let mut tuple_rem_lens: Vec<TokenStream> = Vec::new();
+    let mut checked_locals: Vec<CheckedLocal> = Vec::new();
     let tuple_rem_pat_const = Ident::new(&alloc::format!("{}_REM_LENS", const_prefix), const_span);
 
     crate::pattern_processing::extract_const_names_tys(
         &pattern,
         FieldType::Direct(&type_),
+        WholeFieldPat::No,
         &mut ExtractConstCtx {
             bats: &mut bats,
             tuple_rem_lens: &mut tuple_rem_lens,
             tuple_rem_pat_const: &tuple_rem_pat_const,
+            checked_locals: &mut checked_locals,
             crate_kw,
         },
     )?;
@@ -151,6 +154,21 @@ fn parse_one_constant(
             ts.append_one(Punct::new('=', Spacing::Alone).with_span(const_span));
             ts.extend(expr);
             ts.append_one(Punct::new(';', Spacing::Alone).with_span(const_span));
+
+            for CheckedLocal {
+                binding,
+                type_: btype,
+            } in checked_locals
+            {
+                let bspan = binding.span();
+                ts.append_keyword("let", bspan);
+                ts.append_one(Ident::new("_", bspan));
+                ts.append_one(Punct::new(':', Spacing::Alone).with_span(bspan));
+                ts.extend(btype.ty);
+                ts.append_one(Punct::new('=', Spacing::Alone).with_span(bspan));
+                ts.append_one(binding);
+                ts.append_one(Punct::new(';', Spacing::Alone).with_span(bspan));
+            }
 
             tokenize_iter_delim(Delimiter::Parenthesis, const_span, &bats, ts, |ts, bat| {
                 ts.append_one(bat.local.clone());

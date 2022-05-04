@@ -62,7 +62,7 @@ impl Binding {
 
 #[cfg_attr(feature = "__dbg", derive(Debug))]
 pub(crate) enum Pattern {
-    Underscore(Span),
+    Underscore(Binding),
     Rem(RemPat),
     Ident(Binding),
     Array(ArrayPat),
@@ -216,12 +216,15 @@ impl Pattern {
                     [TT::Group(_), ..] => parse_struct_pat(input, state, attrs.take()),
                     _ => {
                         let mut as_string = ident_to_string_no_raw(ident);
-                        if as_string == "_" {
-                            input.next(); // skips the ident
-                            Ok(Pattern::Underscore(start_span))
+
+                        let is_underscore = as_string == "_";
+
+                        let binding = make_binding(ident, state, attrs.take(), &mut as_string);
+                        input.next(); // skips the ident
+
+                        if is_underscore {
+                            Ok(Pattern::Underscore(binding))
                         } else {
-                            let binding = make_binding(ident, state, attrs.take(), &mut as_string);
-                            input.next(); // skips the ident
                             Ok(Pattern::Ident(binding))
                         }
                     }
@@ -518,10 +521,11 @@ impl Pattern {
             Pattern::Array(ArrayPat { brackets: span, .. })
             | Pattern::Tuple(TuplePat {
                 parentheses: span, ..
-            })
-            | Pattern::Underscore(span) => Spans::from_one(*span),
+            }) => Spans::from_one(*span),
             Pattern::Rem(RemPat { spans, .. }) | Pattern::Struct(StructPat { spans, .. }) => *spans,
-            Pattern::Ident(binding) => Spans::from_one(binding.local.span()),
+            Pattern::Underscore(binding) | Pattern::Ident(binding) => {
+                Spans::from_one(binding.local.span())
+            }
         }
     }
 
@@ -530,12 +534,11 @@ impl Pattern {
             Pattern::Array(ArrayPat { brackets: span, .. })
             | Pattern::Tuple(TuplePat {
                 parentheses: span, ..
-            })
-            | Pattern::Underscore(span) => *span,
+            }) => *span,
             Pattern::Rem(RemPat { spans, .. }) | Pattern::Struct(StructPat { spans, .. }) => {
                 spans.end
             }
-            Pattern::Ident(binding) => binding.local.span(),
+            Pattern::Underscore(binding) | Pattern::Ident(binding) => binding.local.span(),
         }
     }
 
@@ -595,11 +598,8 @@ impl Pattern {
                 ts.append_one(Punct::new('.', Spacing::Joint).with_span(end_span));
                 ts.append_one(Punct::new('.', Spacing::Alone).with_span(end_span));
             }
-            Pattern::Ident(binding) => {
+            Pattern::Underscore(binding) | Pattern::Ident(binding) => {
                 ts.append_one(binding.local.clone());
-            }
-            Pattern::Underscore(span) => {
-                ts.append_one(Ident::new("_", *span));
             }
         }
     }
