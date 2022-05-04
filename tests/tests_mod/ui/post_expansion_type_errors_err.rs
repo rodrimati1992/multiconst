@@ -29,4 +29,14 @@ multiconst::multiconst!{
 }
 
 
+
+multiconst::multiconst!{
+    const [X, Z, Z]: [(); 3] = [(), (), ()];
+}
+
+multiconst::multiconst!{
+    const Z: () = ();
+}
+
+
 fn main(){}

@@ -1,0 +1,15 @@
+error[E0308]: mismatched types
+ --> tests/tests_mod/ui/struct_pattern_type_errors_err.rs:6:24
+  |
+6 |     const Range{start: A:u16, ..}: Range<u8> = 3..5;
+  |                        ^ expected `u16`, found `u8`
+  |
+  = note: this error originates in the macro `$crate::__::__priv_multiconst_proc_macro` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/tests_mod/ui/struct_pattern_type_errors_err.rs:16:18
+   |
+16 |     const Tupled(B: u32): Tupled = Tupled(10);
+   |                  ^ expected `u32`, found `u8`
+   |
+   = note: this error originates in the macro `$crate::__::__priv_multiconst_proc_macro` (in Nightly builds, run with -Z macro-backtrace for more info)

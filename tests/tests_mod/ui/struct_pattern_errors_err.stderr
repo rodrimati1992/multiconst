@@ -1,0 +1,63 @@
+error: expected a `:` after this
+ --> tests/tests_mod/ui/struct_pattern_errors_err.rs:5:17
+  |
+5 |     const Range{start}: Range<u8> = 3..5;
+  |                 ^^^^^
+  |
+  = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected a pattern after this
+ --> tests/tests_mod/ui/struct_pattern_errors_err.rs:9:22
+  |
+9 |     const Range{start:}: Range<u8> = 3..5;
+  |                      ^
+  |
+  = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected type after this
+  --> tests/tests_mod/ui/struct_pattern_errors_err.rs:13:25
+   |
+13 |     const Range{start: B:}: Range<u8> = 3..5;
+   |                         ^
+   |
+   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected type
+  --> tests/tests_mod/ui/struct_pattern_errors_err.rs:17:27
+   |
+17 |     const Range{start: BB:,}: Range<u8> = 3..5;
+   |                           ^
+   |
+   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: only trailing `..` patterns are supported in structs
+  --> tests/tests_mod/ui/struct_pattern_errors_err.rs:21:27
+   |
+21 |     const Range{start: C, .., end: D}: Range<u8> = 3..5;
+   |                           ^^
+   |
+   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected type after this
+  --> tests/tests_mod/ui/struct_pattern_errors_err.rs:36:23
+   |
+36 |     const TupledPart(A:): TupledPart = TupledPart(10, false);
+   |                       ^
+   |
+   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected type
+  --> tests/tests_mod/ui/struct_pattern_errors_err.rs:40:24
+   |
+40 |     const TupledPart(A:,): TupledPart = TupledPart(10, false);
+   |                        ^
+   |
+   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: only trailing `..` patterns are supported in structs
+  --> tests/tests_mod/ui/struct_pattern_errors_err.rs:44:25
+   |
+44 |     const TupledPart(A, .., B): TupledPart = TupledPart(10, false);
+   |                         ^^
+   |
+   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
