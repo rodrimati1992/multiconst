@@ -17,15 +17,9 @@ mod testing;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub(crate) fn is_path_separator(p0: &Punct, p1: &Punct) -> bool {
-    p0.as_char() == ':'
-        && p0.spacing() == Spacing::Joint
-        && p1.as_char() == ':'
-        && p1.spacing() == Spacing::Alone
-}
-
 enum PathToken {
     Type,
+    Colon,
     Other,
 }
 
@@ -34,7 +28,7 @@ fn is_path_token(tt: Option<&TokenTree>) -> Option<PathToken> {
         Some(TokenTree::Ident(_)) => Some(PathToken::Other),
         Some(TokenTree::Punct(p)) => match p.as_char() {
             '<' => Some(PathToken::Type),
-            ':' => Some(PathToken::Other),
+            ':' => Some(PathToken::Colon),
             _ => None,
         },
         _ => None,
@@ -42,55 +36,74 @@ fn is_path_token(tt: Option<&TokenTree>) -> Option<PathToken> {
 }
 
 /// Loose path parsing
+#[cfg_attr(feature = "__dbg", derive(Debug))]
 pub(crate) struct Path {
     pub(crate) tokens: TokenStream,
+    pub(crate) spans: Spans,
 }
 
 impl Path {
     pub(crate) fn parse(input: ParseStream<'_>) -> Result<Path, Error> {
         let mut out = TokenStream::new();
+        let start = input.span();
+        let mut prev_pt = PathToken::Other;
 
         while let Some(pt) = is_path_token(input.peek()) {
             match pt {
                 PathToken::Type => {
+                    if out.is_empty() {
+                        return Err(Error::with_span(input.span(), "path can't start with `<`"));
+                    }
+
                     let ot = input.parse_opaque_type_with(|_| true)?;
+
+                    if !matches!(prev_pt, PathToken::Colon) {
+                        let c2span = ot.spans.start;
+                        out.append_one(Punct::new(':', Spacing::Joint).with_span(c2span));
+                        out.append_one(Punct::new(':', Spacing::Alone).with_span(c2span));
+                    }
                     out.extend(ot.ty)
                 }
-                PathToken::Other => {
+                PathToken::Colon | PathToken::Other => {
                     out.extend(input.next());
                 }
             }
+            prev_pt = pt;
         }
 
         if out.is_empty() {
             return Err(input.error("expected path after this token"));
         }
+        let spans = Spans {
+            start,
+            end: input.span(),
+        };
 
-        Ok(Path { tokens: out })
+        Ok(Path { tokens: out, spans })
     }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
 #[cfg_attr(feature = "__dbg", derive(Debug))]
-pub(crate) enum FieldIdent {
+pub(crate) enum FieldName {
     Numeric(usize, Spans),
     Alphabetic(Rc<str>, Spans),
     /// A numeric identifier, determined by a constant in the expanded code.
     NumericConst(TokenStream, Spans),
 }
 
-impl FieldIdent {
+impl FieldName {
     pub(crate) fn to_token_stream(&self, crate_kw: &Crate, ts: &mut TokenStream) {
         match *self {
-            FieldIdent::Numeric(n, spans) => {
+            FieldName::Numeric(n, spans) => {
                 crate_kw.item_to_ts("Usize", spans, ts);
 
                 ts.append_one(Punct::new('<', Spacing::Joint).with_span(spans.start));
                 ts.append_one(Literal::usize_unsuffixed(n).with_span(spans.end));
                 ts.append_one(Punct::new('>', Spacing::Joint).with_span(spans.end));
             }
-            FieldIdent::Alphabetic(ref str, spans) => {
+            FieldName::Alphabetic(ref str, spans) => {
                 let mut chars = str.chars();
                 let span = spans.start;
 
@@ -120,7 +133,7 @@ impl FieldIdent {
 
                 ts.append_one(Punct::new('>', Spacing::Joint).with_span(span));
             }
-            FieldIdent::NumericConst(ref x, spans) => {
+            FieldName::NumericConst(ref x, spans) => {
                 crate_kw.item_to_ts("Usize", spans, ts);
 
                 ts.append_one(Punct::new('<', Spacing::Joint).with_span(spans.start));
@@ -135,7 +148,7 @@ impl FieldIdent {
 
         match input.next() {
             Some(TokenTree::Literal(lit)) => match lit.to_string().parse::<usize>() {
-                Ok(x) => Ok(FieldIdent::Numeric(x, Spans::from_one(lit.span()))),
+                Ok(x) => Ok(FieldName::Numeric(x, Spans::from_one(lit.span()))),
                 Err(_) => Err(Error::with_span(lit.span(), EXPECTED)),
             },
             Some(TokenTree::Ident(ident)) => Ok(Self::from_ident(&ident)),
@@ -146,7 +159,7 @@ impl FieldIdent {
 
     pub(crate) fn from_ident(ident: &Ident) -> Self {
         let s = Rc::<str>::from(utils::ident_to_string_no_raw(&ident));
-        FieldIdent::Alphabetic(s, Spans::from_one(ident.span()))
+        FieldName::Alphabetic(s, Spans::from_one(ident.span()))
     }
 }
 
@@ -316,8 +329,12 @@ impl Attributes {
         if self.attrs.is_empty() {
             Ok(())
         } else {
-            Err(Error::new(self.spans, "these attributes are unused"))
+            self.unused_error()
         }
+    }
+
+    pub(crate) fn unused_error<T>(&self) -> Result<T, Error> {
+        Err(Error::new(self.spans, "these attributes are unused"))
     }
 
     /// Appens an attribute that comes after `self` into `self`.

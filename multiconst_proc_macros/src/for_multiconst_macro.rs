@@ -16,14 +16,17 @@ use crate::{
 mod tests;
 
 pub(crate) fn macro_impl(ts: TokenStream) -> Result<TokenStream, TokenStream> {
+    // #[cfg(feature = "__dbg")]
+    // std::println!("\n\n{:#?}\n\n", ts);
+
     let input = &mut crate::parsing::ParseBuffer::new(ts);
     let crate_kw = Crate::parse(input).unwrap();
 
     let ret = parse_all_constants(&crate_kw, input)
         .map_err(|e| Error::to_compile_error(&e, &crate_kw))?;
 
-    #[cfg(feature = "__dbg")]
-    std::println!("\n\n{}\n\n", ret);
+    // #[cfg(feature = "__dbg")]
+    // std::println!("\n\n{}\n\n", ret);
 
     Ok(ret)
 }
@@ -37,6 +40,9 @@ pub(crate) fn parse_all_constants(
     while !input.is_empty() {
         parse_one_constant(crate_kw, input, &mut out)?;
     }
+
+    // #[cfg(feature = "__dbg")]
+    // ::std::println!("{}", out);
 
     Ok(out)
 }

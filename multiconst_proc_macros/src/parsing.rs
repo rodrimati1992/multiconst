@@ -24,6 +24,12 @@ impl ParseBuffer {
         Self { iter, last_span }
     }
 
+    pub(crate) fn with_span(ts: TokenStream, span: Span) -> Self {
+        let iter = PeekableN::new(ts);
+        let last_span = span;
+        Self { iter, last_span }
+    }
+
     pub(crate) fn is_empty(&mut self) -> bool {
         self.iter.peek().is_none()
     }
@@ -111,10 +117,7 @@ impl ParseBuffer {
                 }
                 Some(tt) if level == 0 && is_type_terminator(tt) => {
                     if out.is_empty() {
-                        return Err(Error::with_span(
-                            tt.span(),
-                            "expected type, found no tokens",
-                        ));
+                        return Err(Error::with_span(tt.span(), "expected type"));
                     } else {
                         break;
                     };

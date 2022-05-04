@@ -31,10 +31,9 @@ fn test_path() {
     for before in vec![
         "::Hello",
         "Hello",
-        "<Foo>",
-        "<Foo>::",
-        "<Foo>::Bar",
-        "<Foo>::Bar::<Baz>",
+        "Foo",
+        "Foo::Bar",
+        "Foo::Bar::<Baz>",
         "Foo::<Bar>",
     ] {
         for after in vec!["(world)", "()", "{}", "{world: A}", ""] {
@@ -62,8 +61,13 @@ fn test_path() {
         assert!(err.consecutive_unspace(&["expected", "path"]), "{}", err);
     }
     {
-        let err = parse_path("<(world)").unwrap_err();
+        let err = parse_path("F<(world)").unwrap_err();
 
         assert!(err.consecutive_unspace(&["incomplete", "type"]), "{}", err);
+    }
+    {
+        let err = parse_path("<(world)>::Bar").unwrap_err();
+
+        assert!(err.consecutive_unspace(&["path can't"]), "{}", err);
     }
 }

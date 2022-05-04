@@ -102,6 +102,22 @@ fn attributes_on_patterns() {
             out,
         );
     }
+    {
+        let out = process_str("#[foo] const F{#[bar] a: A}: F = E;").unwrap();
+        assert!(
+            out.consecutive_unspace(&["#[bar] #[foo] const A:"]),
+            "{}",
+            out,
+        );
+    }
+    {
+        let out = process_str("#[foo] const F(#[bar] A): F = E;").unwrap();
+        assert!(
+            out.consecutive_unspace(&["#[bar] #[foo] const A:"]),
+            "{}",
+            out,
+        );
+    }
 }
 
 #[test]

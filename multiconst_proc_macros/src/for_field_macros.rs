@@ -1,7 +1,7 @@
 use used_proc_macro::{Punct, Spacing, TokenStream, TokenTree};
 
 use crate::{
-    syntax::{Attributes, Crate, FieldIdent},
+    syntax::{Attributes, Crate, FieldName},
     utils::{TokenStreamExt, WithSpan},
     Error,
 };
@@ -11,7 +11,7 @@ pub(crate) fn field_macro_impl(input: TokenStream) -> Result<TokenStream, TokenS
     let crate_kw = Crate::parse(input).unwrap();
     (|| -> Result<TokenStream, Error> {
         let mut out = TokenStream::new();
-        let field_ident = FieldIdent::parse(input)?;
+        let field_ident = FieldName::parse(input)?;
         input.assert_empty()?;
         field_ident.to_token_stream(&crate_kw, &mut out);
 
@@ -55,9 +55,9 @@ pub(crate) fn field_name_aliases_macro_impl(
                     return Err(Error::with_span(eq_span, "expected field name after this"));
                 }
 
-                FieldIdent::parse(input)?.to_token_stream(&crate_kw, &mut out);
+                FieldName::parse(input)?.to_token_stream(&crate_kw, &mut out);
             } else {
-                let field_ident = FieldIdent::from_ident(&ident);
+                let field_ident = FieldName::from_ident(&ident);
 
                 out.append_one(ident);
                 out.append_one(Punct::new('=', Spacing::Alone).with_span(span));
