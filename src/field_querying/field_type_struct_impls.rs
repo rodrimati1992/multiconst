@@ -1,12 +1,11 @@
 use crate::FieldType;
 
+#[allow(non_camel_case_types)]
 mod name {
-    use crate::Usize;
+    use crate::{TChars, TIdent, Usize};
 
-    crate::field_name_aliases! {
-        pub start,
-        pub end,
-    }
+    pub type start = TIdent<(TChars<'s', 't', 'a', 'r', 't', ' ', ' ', ' '>,)>;
+    pub type end = TIdent<(TChars<'e', 'n', 'd', ' ', ' ', ' ', ' ', ' '>,)>;
 
     pub type N0 = Usize<0>;
 }
