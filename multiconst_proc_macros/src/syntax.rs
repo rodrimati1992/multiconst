@@ -94,10 +94,27 @@ pub(crate) enum FieldName {
 }
 
 impl FieldName {
-    pub(crate) fn to_token_stream(&self, crate_kw: &Crate, ts: &mut TokenStream) {
+    #[cfg(feature = "derive")]
+    pub(crate) fn tokens(&self, crate_path: &syn::Path) -> TokenStream {
+        use quote::ToTokens;
+
+        let mut ts = TokenStream::new();
+        self.to_token_stream_inner(&mut ts, &|item_name, spans, ts| {
+            let item = Ident::new(item_name, spans.end);
+            ts.extend(quote::quote_spanned!(spans.start=> #crate_path::__::));
+            item.to_tokens(ts);
+        });
+        ts
+    }
+
+    fn to_token_stream_inner(
+        &self,
+        ts: &mut TokenStream,
+        item_to_ts: &dyn Fn(&str, Spans, &mut TokenStream),
+    ) {
         match *self {
             FieldName::Numeric(n, spans) => {
-                crate_kw.item_to_ts("Usize", spans, ts);
+                item_to_ts("Usize", spans, ts);
 
                 ts.append_one(Punct::new('<', Spacing::Joint).with_span(spans.start));
                 ts.append_one(Literal::usize_unsuffixed(n).with_span(spans.end));
@@ -107,13 +124,13 @@ impl FieldName {
                 let mut chars = str.chars();
                 let span = spans.start;
 
-                crate_kw.item_to_ts("TIdent", spans, ts);
+                item_to_ts("TIdent", spans, ts);
 
                 ts.append_one(Punct::new('<', Spacing::Joint).with_span(span));
 
                 tokenize_delim(Delimiter::Parenthesis, span, ts, |ts| {
                     while !chars.as_str().is_empty() {
-                        crate_kw.item_to_ts("TChars", spans, ts);
+                        item_to_ts("TChars", spans, ts);
 
                         ts.append_one(Punct::new('<', Spacing::Joint).with_span(span));
 
@@ -134,13 +151,18 @@ impl FieldName {
                 ts.append_one(Punct::new('>', Spacing::Joint).with_span(span));
             }
             FieldName::NumericConst(ref x, spans) => {
-                crate_kw.item_to_ts("Usize", spans, ts);
+                item_to_ts("Usize", spans, ts);
 
                 ts.append_one(Punct::new('<', Spacing::Joint).with_span(spans.start));
                 ts.append_one(Group::new(Delimiter::Brace, x.clone()));
                 ts.append_one(Punct::new('>', Spacing::Joint).with_span(spans.end));
             }
         }
+    }
+    pub(crate) fn to_token_stream(&self, crate_kw: &Crate, ts: &mut TokenStream) {
+        self.to_token_stream_inner(ts, &|item_name, spans, ts| {
+            crate_kw.item_to_ts(item_name, spans, ts)
+        })
     }
 
     pub(crate) fn parse(input: ParseStream<'_>) -> Result<Self, Error> {
@@ -287,6 +309,13 @@ impl Crate {
             )),
             Err(e) => Err(e),
         }
+    }
+}
+
+#[cfg(feature = "derive")]
+impl quote::ToTokens for Crate {
+    fn to_tokens(&self, ts: &mut used_proc_macro::TokenStream) {
+        self.ident.to_tokens(ts);
     }
 }
 

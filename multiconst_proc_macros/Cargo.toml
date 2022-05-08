@@ -16,8 +16,19 @@ include = [
 
 [features]
 __dbg = []
+derive = ["proc-macro2", "syn", "quote"]
 
-[dependencies]
+[dependencies.proc-macro2]
+version = "1.0.37"
+optional = true
+
+[dependencies.syn]
+version = "1.0.92"
+optional = true
+
+[dependencies.quote]
+version = "1.0.18"
+optional = true
 
 [dev-dependencies]
 proc-macro2 = "1.0.37"
