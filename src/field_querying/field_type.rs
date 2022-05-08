@@ -4,6 +4,9 @@
 ///
 /// The type of nested fields can be queried by passing a tuple of field names.
 ///
+/// You can derive this tarit with the [`FieldType`](derive@crate::FieldType)
+/// derive (requires the "derive" feature).
+///
 /// You can use the [`GetFieldType`] type alias as a more convenient way to
 /// get the `Type` associated type.
 ///
@@ -43,6 +46,12 @@
 /// }
 ///
 /// ```
+///
+/// ### Derived
+///
+/// Using the [`FieldType`](derive@crate::FieldType) derive to impl this trait.
+///
+/// TODO
 ///
 pub trait FieldType<Names> {
     /// The type of the field.
