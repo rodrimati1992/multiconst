@@ -2,6 +2,7 @@ mod tests_mod {
     #[cfg(feature = "derive")]
     mod derive_tests;
 
+    mod assoc_multiconst_tests;
     mod field_macro_tests;
     mod misc_tests;
     mod slice_destructuring;

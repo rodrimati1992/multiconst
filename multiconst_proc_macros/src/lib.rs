@@ -29,11 +29,20 @@ mod utils;
 #[cfg(test)]
 mod test_utils;
 
-use crate::error::Error;
+use crate::{error::Error, for_multiconst_macro::Usedwhere};
 
 #[proc_macro]
 pub fn __priv_multiconst_proc_macro(args: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    crate::for_multiconst_macro::macro_impl(args.into())
+    crate::for_multiconst_macro::macro_impl(args.into(), Usedwhere::OutsideImpls)
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+#[proc_macro]
+pub fn __priv_associated_multiconst_proc_macro(
+    args: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    crate::for_multiconst_macro::macro_impl(args.into(), Usedwhere::InherentImpl)
         .unwrap_or_else(|e| e)
         .into()
 }

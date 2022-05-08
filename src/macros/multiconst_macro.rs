@@ -1,6 +1,8 @@
 /**
 Destructures a constant expression into multiple constants
 
+For destructuring into *associated* constants you can use [`associated_multiconst`]
+
 For examples [look here](#examples)
 
 # Syntax

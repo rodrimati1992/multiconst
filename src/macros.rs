@@ -4,6 +4,9 @@ mod field_macros;
 #[macro_use]
 mod multiconst_macro;
 
+#[macro_use]
+mod associated_multiconst_macro;
+
 /// For loop over a range
 ///
 /// # Example

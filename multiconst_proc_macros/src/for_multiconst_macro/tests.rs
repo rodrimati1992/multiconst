@@ -1,4 +1,4 @@
-use crate::test_utils::StrExt;
+use crate::{for_multiconst_macro::Usedwhere, test_utils::StrExt};
 
 use alloc::string::{String, ToString};
 
@@ -8,7 +8,7 @@ fn process_str(s: &str) -> Result<String, String> {
 
     ::std::dbg!(&ts);
 
-    crate::for_multiconst_macro::macro_impl(ts)
+    crate::for_multiconst_macro::macro_impl(ts, Usedwhere::OutsideImpls)
         .map(|x| x.to_string())
         .map_err(|e| e.to_string())
 }
