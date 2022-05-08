@@ -57,6 +57,8 @@ mod field_querying;
 
 pub use crate::field_querying::*;
 
+include! {"derive_macro_reexport.rs"}
+
 mod macros;
 mod utils_for_macros;
 
