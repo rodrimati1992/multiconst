@@ -49,9 +49,11 @@
 ///
 /// ### Derived
 ///
-/// Using the [`FieldType`](derive@crate::FieldType) derive to impl this trait.
+/// Examples of deriving this trait with the [`FieldType`](derive@crate::FieldType)
+/// derive [are here](derive@crate::FieldType#examples).
+/// (the derive requires the `"derive"` feature)
 ///
-/// TODO
+///
 ///
 pub trait FieldType<Names> {
     /// The type of the field.

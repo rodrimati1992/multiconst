@@ -37,6 +37,19 @@
 //!
 //! ```
 //!
+//! # Struct
+//!
+//! ```rust
+//! todo!()
+//!
+//! ```
+//!
+//! # Features
+//!
+//! All these crate features are opt-in:
+//!
+//! - `"derive"`: enables the [`FieldType`][FieldType-derive] derive macro.
+//!
 //!
 //! # No-std support
 //!
@@ -48,8 +61,9 @@
 //!
 //!
 //! [`multiconst`]: crate::multiconst
+//! [FieldType-derive]: derive@crate::FieldType
 //! [multiconst-examples]: crate::multiconst#examples
-
+#![cfg_attr(feature = "docsrs", feature(doc_auto_cfg))]
 #![no_std]
 #![forbid(unsafe_code)]
 

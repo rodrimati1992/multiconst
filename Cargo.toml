@@ -23,6 +23,7 @@ include = [
 __dbg = ["multiconst_proc_macros/__dbg"]
 __no_ui_tests = []
 derive = ["multiconst_proc_macros/derive"]
+docsrs = []
 
 [workspace]
 
@@ -33,4 +34,5 @@ multiconst_proc_macros = {path = "./multiconst_proc_macros", version = "=0.2.1"}
 trybuild = "1.0"
 static_assertions = "1.1"
 
-
+[package.metadata.docs.rs]
+features = ["derive", "docsrs"]
