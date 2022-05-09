@@ -27,3 +27,21 @@ error: unexpected token
    |
 22 | #[field_type(pub fooasdasd)]
    |                  ^^^^^^^^^
+
+error: expected one of: `crate`, `pub`, `priv`
+  --> tests/tests_mod/ui_derive/derive_macro_err.rs:27:14
+   |
+27 | #[field_type(foooo)]
+   |              ^^^^^
+
+error: expected one of: `crate`, `pub`, `priv`
+  --> tests/tests_mod/ui_derive/derive_macro_err.rs:28:14
+   |
+28 | #[field_type(bar)]
+   |              ^^^
+
+error: unexpected token
+  --> tests/tests_mod/ui_derive/derive_macro_err.rs:29:18
+   |
+29 | #[field_type(pub fooasdasd)]
+   |                  ^^^^^^^^^

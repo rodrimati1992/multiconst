@@ -22,5 +22,12 @@ struct Qux( u32);
 #[field_type(pub fooasdasd)]
 struct Another(u32);
 
+// ensuring that errors are emitted for all attributes
+#[derive(FieldType)]
+#[field_type(foooo)]
+#[field_type(bar)]
+#[field_type(pub fooasdasd)]
+struct ManyAttrs(u32);
+
 
 fn main(){}

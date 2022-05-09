@@ -71,7 +71,7 @@ fn parse_attributes_outer(
             if let Err(e) = res {
                 match *errs {
                     ref mut x @ Ok(()) => *x = Err(e),
-                    Err(ref mut x) => *x = e,
+                    Err(ref mut x) => x.combine(e),
                 }
             }
         }
