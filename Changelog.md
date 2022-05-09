@@ -2,11 +2,11 @@ This is the changelog, summarising changes in each version(some minor changes ma
 
 # 0.2
 
-### 0.3.0
+### 0.2.2
 
 Added struct pattern support in `multiconst`.
 
-Added `FieldType` derive macro for structs, enabled with the `"derive"` crate defature.
+Added `FieldType` derive macro for structs, enabled with the `"derive"` crate feature.
 
 Added `associated_multiconst` to destructure an expression into multiple associated constants.
 
