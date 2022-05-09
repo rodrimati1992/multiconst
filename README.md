@@ -4,16 +4,16 @@
 
 For destructuring an expression into multiple constants.
 
-The primary feature of this crate is the [`multiconst`] macro, 
+The primary feature of this crate is the [`multiconst`] macro,
 which destructuring an expression into multiple constants.
 
 # Example
 
 For more examples you can look [in the docs for `multiconst`][multiconst-examples]
 
-# Basic
+### Basic
 
-This example demonstrates destructuring an array (whose length is inferred) 
+This example demonstrates destructuring an array (whose length is inferred)
 into multiple constants.
 
 ```rust
@@ -41,6 +41,56 @@ const fn mersennes_from<const N: usize>(start: u32) -> [u64; N] {
 
 ```
 
+### Struct
+
+This example demonstrates how structs that impl [`FieldType`][FieldType-trait]
+can be destructured.
+
+This example uses the [`FieldType`][FieldType-derive] derive macro
+(which requires the "derive" feature)
+to make it possible to destructure struct fields without 
+[annotating their types][example-struct-ty-annot].
+
+```rust
+use multiconst::{FieldType, multiconst};
+
+assert_eq!(MIN, 3);
+assert_eq!(MAX, 21);
+
+
+multiconst!{
+    const MinMax{min: MIN, max: MAX}: MinMax = min_max(&[21, 13, 3, 8, 5]);
+}
+
+#[derive(FieldType)]
+struct MinMax {
+    min: u32,
+    max: u32,
+}
+
+const fn min_max(elems: &[u32]) -> MinMax {
+    let mut min = u32::MAX;
+    let mut max = 0;
+    
+    multiconst::for_range!{i in 0..elems.len() =>
+        let elem = elems[i];
+        
+        if elem < min { min = elem; }
+        if elem > max { max = elem; }
+    }
+    
+    MinMax{min, max}
+}
+
+```
+
+# Features
+
+All these crate features are opt-in:
+
+- `"derive"`: enables the [`FieldType`][FieldType-derive] derive macro.
+
+
 # No-std support
 
 `multiconst` is `#![no_std]`, it can be used anywhere Rust can be used.
@@ -50,5 +100,9 @@ const fn mersennes_from<const N: usize>(start: u32) -> [u64; N] {
 `multiconst` requires Rust 1.51.0, requiring crate features to use newer language features.
 
 
+
+[FieldType-trait]: https://docs.rs/multiconst/latest/multiconst/trait.FieldType.html
+[FieldType-derive]: https://docs.rs/multiconst/latest/multiconst/derive.FieldType.html
+[example-struct-ty-annot]: https://docs.rs/multiconst/latest/multiconst/macro.multiconst.html#example-struct-ty-annot
 [`multiconst`]: https://docs.rs/multiconst/latest/multiconst/macro.multiconst.html
 [multiconst-examples]: https://docs.rs/multiconst/latest/multiconst/macro.multiconst.html#examples

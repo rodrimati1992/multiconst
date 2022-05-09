@@ -199,9 +199,10 @@ const fn rng<const N: usize>(seed: u32) -> ([u32; N], u32) {
 ```
 
 <span id = "example-struct"></span>
-### Struct example
+### Struct example, derive
 
-This example demonstrates struct destructuring.
+This example demonstrates destructuring of structs that derive the
+[`FieldType`](trait@crate::FieldType) trait.
 
 */
 #[cfg_attr(feature = "derive", doc = "```rust")]
@@ -209,47 +210,50 @@ This example demonstrates struct destructuring.
 /**
 use multiconst::{FieldType, multiconst};
 
-use std::ops::Range;
-
-{
-    multiconst!{
-        // Structs that impl/derive `FieldType` can be destructured like this
-        const Deriving{
-            foo: F,
-            bar: B,
-        }: Deriving = Deriving{foo: 10, bar: 20};
-    }
-
-    assert_eq!(F, 10);
-    assert_eq!(B, 20);
-
-    // The `FieldType` derive requires the `"derive"` feature.
-    #[derive(FieldType)]
-    struct Deriving {
-        foo: u32,
-        bar: u64,
-    }
+multiconst!{
+    // Structs that impl/derive `FieldType` can be destructured like this
+    const Deriving{
+        foo: F,
+        bar: B,
+    }: Deriving = Deriving{foo: 10, bar: 20};
 }
 
-{
-    multiconst!{
-        // Structs that don't impl `FieldType` can be destructured by annotating field types
-        const NonDeriving{
-            baz: B: u32,
-            qux: Q: u64,
-        }: NonDeriving = NonDeriving{baz: 10, qux: 20};
-    }
+assert_eq!(F, 10);
+assert_eq!(B, 20);
 
-    assert_eq!(B, 10);
-    assert_eq!(Q, 20);
+// The `FieldType` derive requires the `"derive"` feature.
+#[derive(FieldType)]
+struct Deriving {
+    foo: u32,
+    bar: u64,
+}
+```
 
-    struct NonDeriving {
-        baz: u32,
-        qux: u64,
-    }
+<span id = "example-struct-ty-annot"></span>
+### Struct example, type annotation
+
+This example demonstrates how
+non-[`FieldType`](trait@crate::FieldType)-implementing structs can be destructured.
+
+```rust
+use multiconst::multiconst;
+
+
+multiconst!{
+    // Structs that don't impl `FieldType` can be destructured by annotating field types
+    const NonDeriving{
+        baz: B: u32,
+        qux: Q: u64,
+    }: NonDeriving = NonDeriving{baz: 10, qux: 20};
 }
 
+assert_eq!(B, 10);
+assert_eq!(Q, 20);
 
+struct NonDeriving {
+    baz: u32,
+    qux: u64,
+}
 ```
 
 
