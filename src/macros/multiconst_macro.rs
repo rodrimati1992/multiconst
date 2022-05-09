@@ -1,6 +1,8 @@
 /**
 Destructures a constant expression into multiple constants
 
+For destructuring into *associated* constants you can use [`associated_multiconst`]
+
 For examples [look here](#examples)
 
 # Syntax
@@ -17,14 +19,45 @@ $(
 
 <span id = "pattern"></span>
 Where `:pattern` arguments can be any of:
-- `$(#[$battr:meta])* $binding:ident`: a binding pattern,
+
+- binding pattern: `$(#[$battr:meta])* $binding:ident`:
 which destructures that part of the pattern into a `$binding` constant.
-- `_`: an ignore pattern, most useful inside other patterns
-- `$(#[$battr:meta])* $binding:ident @ ..`(only usable in arrays):
+
+- ignore pattern: `_`: most useful inside other patterns
+
+- remainder pattern: `$(#[$battr:meta])* $binding:ident @ ..` (only usable in arrays):
 destructures the rest of the matched array into a `$binding` constant.
-- `..`(only usable in arrays or tuples): ignores the rest of the elements in the matched collection.
-- `[ $($array_elem:`[`pattern`](#pattern)`),* $(,)? ]`: an array pattern
-- `( $($tuple_elem:`[`pattern`](#pattern)`),* )`: a tuple pattern
+
+- ignore remainder pattern: `..` (usable in arrays, structs, or tuples):
+ignores the rest of the elements in the matched collection.
+
+- array pattern: `[ $($array_elem:`[`pattern`](#pattern)`),* $(,)? ]`
+
+- tuple pattern: `( $($tuple_elem:`[`pattern`](#pattern)`),* )`:
+
+- struct pattern:
+```text
+$struct_name:path {
+    $(
+        $(#[$fattr:meta])*
+        $field_name:field_name: $struct_elem:pattern $(: $type_annotation:ty)?
+    ),*
+    $(, ..)?
+    $(,)?
+}
+```
+
+- tuple struct pattern:
+```text
+$struct_name:path (
+    $(
+        $struct_elem:pattern $(: $type_annotation:ty)?
+    ),*
+    $(, ..)?
+    $(,)?
+)
+```
+
 - `( $pattern:`[`pattern`](#pattern)` )`: a parenthesized pattern
 
 `$vis:vis` can be any visibility modifier,
@@ -33,6 +66,27 @@ it is then used as the visibility of every generated constant.
 `$type:ty` can be any type (so long as it's compatible with the pattern).
 
 `$value:expr` can be any const expression (so long as its type is `$type`).
+
+`$field_name:field_name` can be either an untyped integer literal or an identifier.
+
+### Attributes
+
+Attributes used on patterns are copied to the generated constant,
+which allows documenting `pub` constants.
+
+[example of how to do that here](#attrs-example)
+
+### Struct patterns
+
+Structs patterns (by default) require the struct to implement
+the [`FieldType`][trait@crate::FieldType] trait to query the types of destructured fields.
+You can annotate the types of fields to avoid the
+[`FieldType`][trait@crate::FieldType] requirement.
+
+Struct patterns inhibit length inference of array type arguments,
+so you must annotate the array's length.
+
+[example of struct patterns](#example-struct)
 
 # Type Inference
 
@@ -59,8 +113,7 @@ which means that this is allowed:
 
 # Limitations
 
-This macro only supports destructuring tuples and arrays,
-it will support destructuring structs in a future release.
+This macro only supports destructuring tuples, structs, and arrays.
 
 There are no plans to support destructuring slices or enums.
 
@@ -143,8 +196,110 @@ const fn rng<const N: usize>(seed: u32) -> ([u32; N], u32) {
     # (arr, seed.wrapping_add(N as u32))
 }
 
-
 ```
+
+<span id = "example-struct"></span>
+### Struct example, derive
+
+This example demonstrates destructuring of structs that derive the
+[`FieldType`](trait@crate::FieldType) trait.
+
+*/
+#[cfg_attr(feature = "derive", doc = "```rust")]
+#[cfg_attr(not(feature = "derive"), doc = "```ignore")]
+/**
+use multiconst::{FieldType, multiconst};
+
+multiconst!{
+    // Structs that impl/derive `FieldType` can be destructured like this
+    const Deriving{
+        foo: F,
+        bar: B,
+    }: Deriving = Deriving{foo: 10, bar: 20};
+}
+
+assert_eq!(F, 10);
+assert_eq!(B, 20);
+
+// The `FieldType` derive requires the `"derive"` feature.
+#[derive(FieldType)]
+struct Deriving {
+    foo: u32,
+    bar: u64,
+}
+```
+
+<span id = "example-struct-ty-annot"></span>
+### Struct example, type annotation
+
+This example demonstrates how
+non-[`FieldType`](trait@crate::FieldType)-implementing structs can be destructured.
+
+```rust
+use multiconst::multiconst;
+
+
+multiconst!{
+    // Structs that don't impl `FieldType` can be destructured by annotating field types
+    const NonDeriving{
+        baz: B: u32,
+        qux: Q: u64,
+    }: NonDeriving = NonDeriving{baz: 10, qux: 20};
+}
+
+assert_eq!(B, 10);
+assert_eq!(Q, 20);
+
+struct NonDeriving {
+    baz: u32,
+    qux: u64,
+}
+```
+
+
+
+<span id = "attrs-example"></span>
+### Attributes example
+
+This example demonstrates how attributes (mostly documentation comments)
+can be used in multiconst.
+
+```rust
+use multiconst::multiconst;
+
+use std::ops::Range;
+
+
+multiconst! {
+    /// Attributes (like documentation attributes) can go here,
+    /// they are copied below the attributes used on inner patterns.
+    pub const (
+        /// documentation on the pattern are copied to the generated constants.
+        MAJOR,
+        MINOR,
+        PATCH,
+    ): (u32, u32, u32) = VERSIONS;
+}
+
+assert_eq!(MAJOR, 1);
+assert_eq!(MINOR, 2);
+assert_eq!(PATCH, 3);
+
+# const VERSIONS: (u32, u32, u32) = (1, 2, 3);
+
+
+multiconst! {
+    pub const Range {
+        /// Documentation on struct field patterns looks like this,
+        /// these doc attributes are for the `S` constant.
+        start: S,
+        ..
+    }: Range<u32> = 3..5;
+}
+
+assert_eq!(S, 3);
+```
+
 
 */
 #[macro_export]

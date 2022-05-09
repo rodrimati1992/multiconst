@@ -24,6 +24,12 @@ impl ParseBuffer {
         Self { iter, last_span }
     }
 
+    pub(crate) fn with_span(ts: TokenStream, span: Span) -> Self {
+        let iter = PeekableN::new(ts);
+        let last_span = span;
+        Self { iter, last_span }
+    }
+
     pub(crate) fn is_empty(&mut self) -> bool {
         self.iter.peek().is_none()
     }
@@ -55,9 +61,15 @@ impl ParseBuffer {
         Error::with_span(self.last_span(), msg)
     }
 
-    fn is_type_terminator(punct: &Punct) -> bool {
-        let c = punct.as_char();
-        matches!(c, ';' | ',' | '=')
+    fn is_type_terminator(tt: &TokenTree) -> bool {
+        matches!(
+            tt,
+            TokenTree::Punct(punct)
+            if {
+                let c = punct.as_char();
+                matches!(c, ';' | ',' | '=')
+            }
+        )
     }
 
     pub(crate) fn parse_vis(&mut self) -> TokenStream {
@@ -75,10 +87,13 @@ impl ParseBuffer {
         }
     }
 
-    /// Parses a type opaquely, stopping at `,` òr `;`.
-    ///
-    /// This doesn't handle None-delimited at all
-    pub(crate) fn parse_opaque_type(&mut self) -> Result<OpaqueType, crate::Error> {
+    pub(crate) fn parse_opaque_type_with<F>(
+        &mut self,
+        mut is_type_terminator: F,
+    ) -> Result<OpaqueType, crate::Error>
+    where
+        F: FnMut(&TokenTree) -> bool,
+    {
         let mut level = 0usize;
 
         let mut out = TokenStream::new();
@@ -91,23 +106,23 @@ impl ParseBuffer {
         loop {
             let tt = self.peek();
 
-            if let Some(TokenTree::Punct(punct)) = &tt {
-                if level == 0 && Self::is_type_terminator(&punct) {
-                    if out.is_empty() {
-                        return Err(Error::with_span(
-                            punct.span(),
-                            "expected type, found no tokens",
-                        ));
-                    } else {
-                        break;
-                    };
-                } else if punct.as_char() == '<' {
+            match tt {
+                Some(TokenTree::Punct(punct)) if punct.as_char() == '<' => {
                     level += 1;
-                } else if punct.as_char() == '>' {
+                }
+                Some(TokenTree::Punct(punct)) if punct.as_char() == '>' => {
                     level = level
                         .checked_sub(1)
                         .ok_or_else(|| Error::with_span(punct.span(), "unexpected '>'"))?;
                 }
+                Some(tt) if level == 0 && is_type_terminator(tt) => {
+                    if out.is_empty() {
+                        return Err(Error::with_span(tt.span(), "expected type"));
+                    } else {
+                        break;
+                    };
+                }
+                _ => {}
             }
 
             if let Some(tt) = self.next() {
@@ -128,6 +143,13 @@ impl ParseBuffer {
         } else {
             Err(Error::with_span(self.last_span(), "incomplete type"))
         }
+    }
+
+    /// Parses a type opaquely, stopping at `,` òr `;`.
+    ///
+    /// This doesn't handle None-delimited at all
+    pub(crate) fn parse_opaque_type(&mut self) -> Result<OpaqueType, crate::Error> {
+        self.parse_opaque_type_with(ParseBuffer::is_type_terminator)
     }
 
     pub(crate) fn assert_empty(&mut self) -> Result<(), crate::Error> {

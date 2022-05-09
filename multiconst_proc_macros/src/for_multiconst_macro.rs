@@ -1,11 +1,13 @@
-use used_proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, TokenStream};
+use used_proc_macro::{
+    Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree,
+};
 
 use alloc::{string::String, vec::Vec};
 
 use crate::{
     parsing::ParseStream,
     pattern::{BindingAndType, Pattern},
-    pattern_processing::{ExtractConstCtx, FieldType},
+    pattern_processing::{CheckedLocal, ExtractConstCtx, FieldType, WholeFieldPat},
     syntax::{self, tokenize_delim, tokenize_iter_delim, Attributes, Crate, Spans},
     type_::Type,
     utils::{TokenStreamExt, TokenTreeExt, WithSpan},
@@ -15,34 +17,60 @@ use crate::{
 #[cfg(test)]
 mod tests;
 
-pub(crate) fn macro_impl(ts: TokenStream) -> Result<TokenStream, TokenStream> {
+#[derive(Copy, Clone)]
+pub(crate) enum Usedwhere {
+    OutsideImpls,
+    InherentImpl,
+}
+
+pub(crate) fn macro_impl(
+    ts: TokenStream,
+    used_where: Usedwhere,
+) -> Result<TokenStream, TokenStream> {
+    // #[cfg(feature = "__dbg")]
+    // std::println!("\n\n{:#?}\n\n", ts);
+
     let input = &mut crate::parsing::ParseBuffer::new(ts);
     let crate_kw = Crate::parse(input).unwrap();
 
-    let ret = parse_all_constants(&crate_kw, input)
+    let const_path = match used_where {
+        Usedwhere::OutsideImpls => TokenStream::new(),
+        Usedwhere::InherentImpl => TokenStream::from_array([
+            TokenTree::Ident(Ident::new("Self", Span::mixed_site())),
+            Punct::new(':', Spacing::Joint).into(),
+            Punct::new(':', Spacing::Alone).into(),
+        ]),
+    };
+
+    let ret = parse_all_constants(&crate_kw, &const_path, input)
         .map_err(|e| Error::to_compile_error(&e, &crate_kw))?;
 
-    #[cfg(feature = "__dbg")]
-    std::println!("\n\n{}\n\n", ret);
+    // #[cfg(feature = "__dbg")]
+    // std::println!("\n\n{}\n\n", ret);
 
     Ok(ret)
 }
 
 pub(crate) fn parse_all_constants(
     crate_kw: &Crate,
+    const_path: &TokenStream,
     input: ParseStream<'_>,
 ) -> Result<TokenStream, Error> {
     let mut out = TokenStream::new();
 
     while !input.is_empty() {
-        parse_one_constant(crate_kw, input, &mut out)?;
+        parse_one_constant(crate_kw, const_path, input, &mut out)?;
     }
+
+    // #[cfg(feature = "__dbg")]
+    // ::std::println!("{}", out);
 
     Ok(out)
 }
 
 fn parse_one_constant(
     crate_kw: &Crate,
+    const_path: &TokenStream,
     input: ParseStream<'_>,
     ts: &mut TokenStream,
 ) -> Result<(), Error> {
@@ -77,15 +105,18 @@ fn parse_one_constant(
 
     let mut bats: Vec<BindingAndType> = Vec::new();
     let mut tuple_rem_lens: Vec<TokenStream> = Vec::new();
+    let mut checked_locals: Vec<CheckedLocal> = Vec::new();
     let tuple_rem_pat_const = Ident::new(&alloc::format!("{}_REM_LENS", const_prefix), const_span);
 
     crate::pattern_processing::extract_const_names_tys(
         &pattern,
         FieldType::Direct(&type_),
+        WholeFieldPat::No,
         &mut ExtractConstCtx {
             bats: &mut bats,
             tuple_rem_lens: &mut tuple_rem_lens,
             tuple_rem_pat_const: &tuple_rem_pat_const,
+            checked_locals: &mut checked_locals,
             crate_kw,
         },
     )?;
@@ -146,6 +177,21 @@ fn parse_one_constant(
             ts.extend(expr);
             ts.append_one(Punct::new(';', Spacing::Alone).with_span(const_span));
 
+            for CheckedLocal {
+                binding,
+                type_: btype,
+            } in checked_locals
+            {
+                let bspan = binding.span();
+                ts.append_keyword("let", bspan);
+                ts.append_one(Ident::new("_", bspan));
+                ts.append_one(Punct::new(':', Spacing::Alone).with_span(bspan));
+                ts.extend(btype.ty);
+                ts.append_one(Punct::new('=', Spacing::Alone).with_span(bspan));
+                ts.append_one(binding);
+                ts.append_one(Punct::new(';', Spacing::Alone).with_span(bspan));
+            }
+
             tokenize_iter_delim(Delimiter::Parenthesis, const_span, &bats, ts, |ts, bat| {
                 ts.append_one(bat.local.clone());
                 syntax::tokenize_comma(const_span, ts);
@@ -167,6 +213,7 @@ fn parse_one_constant(
             ts.append_one(Punct::new(':', Spacing::Alone).with_span(nconst_span));
             ts.extend(bat.type_.ty.clone());
             ts.append_one(Punct::new('=', Spacing::Alone).with_span(nconst_span));
+            ts.extend(const_path.clone());
             ts.append_one(priv_const_name.clone());
             ts.append_one(Punct::new('.', Spacing::Alone).with_span(nconst_span));
             ts.append_one(Literal::usize_unsuffixed(i).with_span(nconst_span));

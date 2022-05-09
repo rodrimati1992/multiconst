@@ -1,6 +1,6 @@
 [package]
 name = "multiconst"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2018"
 authors = ["rodrimati1992 <rodrimatt1985@gmail.com>"]
 rust-version = "1.51.0"
@@ -21,14 +21,18 @@ include = [
 
 [features]
 __dbg = ["multiconst_proc_macros/__dbg"]
-__ui_tests = []
+__no_ui_tests = []
+derive = ["multiconst_proc_macros/derive"]
+docsrs = []
 
 [workspace]
 
 [dependencies]
-multiconst_proc_macros = {path = "./multiconst_proc_macros", version = "=0.2.1"}
+multiconst_proc_macros = {path = "./multiconst_proc_macros", version = "=0.2.2"}
 
 [dev-dependencies]
 trybuild = "1.0"
+static_assertions = "1.1"
 
-
+[package.metadata.docs.rs]
+features = ["derive", "docsrs"]

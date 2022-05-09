@@ -25,4 +25,4 @@ jobs:
         cd "${{github.workspace}}/multiconst_proc_macros/"
         cargo test --verbose
         cd "${{github.workspace}}/"
-        cargo test --verbose 
+        cargo test --features "derive __no_ui_tests" --verbose 

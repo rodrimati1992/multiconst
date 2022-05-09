@@ -1,0 +1,29 @@
+error: expected `pub` or `priv`
+ --> tests/tests_mod/ui_derive/derive_macro_err.rs:5:25
+  |
+5 | struct Foo(#[field_type(crate = hello)] u32);
+  |                         ^^^^^
+
+error: expected `pub` or `priv`
+ --> tests/tests_mod/ui_derive/derive_macro_err.rs:9:25
+  |
+9 | struct Bar(#[field_type(world)] u32);
+  |                         ^^^^^
+
+error: expected one of: `crate`, `pub`, `priv`
+  --> tests/tests_mod/ui_derive/derive_macro_err.rs:13:14
+   |
+13 | #[field_type(aaaaa)]
+   |              ^^^^^
+
+error: expected one of: `crate`, `pub`, `priv`
+  --> tests/tests_mod/ui_derive/derive_macro_err.rs:17:14
+   |
+17 | #[field_type(aaaaa)]
+   |              ^^^^^
+
+error: unexpected token
+  --> tests/tests_mod/ui_derive/derive_macro_err.rs:22:18
+   |
+22 | #[field_type(pub fooasdasd)]
+   |                  ^^^^^^^^^

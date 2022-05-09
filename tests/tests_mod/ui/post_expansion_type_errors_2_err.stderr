@@ -4,6 +4,12 @@ error[E0277]: the trait bound `(): FieldType<Usize<0_usize>>` is not satisfied
 5 |     const (A300, A301): Unit = ();
   |            ^^^^ the trait `FieldType<Usize<0_usize>>` is not implemented for `()`
   |
+  = help: the following implementations were found:
+            <(T0, T1) as FieldType<Usize<0_usize>>>
+            <(T0, T1) as FieldType<Usize<1_usize>>>
+            <(T0, T1, T2) as FieldType<Usize<0_usize>>>
+            <(T0, T1, T2) as FieldType<Usize<1_usize>>>
+          and 32 others
   = note: required because of the requirements on the impl of `FieldType<(Usize<0_usize>,)>` for `()`
   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -13,5 +19,11 @@ error[E0277]: the trait bound `(): FieldType<Usize<1_usize>>` is not satisfied
 5 |     const (A300, A301): Unit = ();
   |                  ^^^^ the trait `FieldType<Usize<1_usize>>` is not implemented for `()`
   |
+  = help: the following implementations were found:
+            <(T0, T1) as FieldType<Usize<0_usize>>>
+            <(T0, T1) as FieldType<Usize<1_usize>>>
+            <(T0, T1, T2) as FieldType<Usize<0_usize>>>
+            <(T0, T1, T2) as FieldType<Usize<1_usize>>>
+          and 32 others
   = note: required because of the requirements on the impl of `FieldType<(Usize<1_usize>,)>` for `()`
   = note: this error originates in the macro `multiconst::multiconst` (in Nightly builds, run with -Z macro-backtrace for more info)

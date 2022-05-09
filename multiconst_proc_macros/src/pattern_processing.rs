@@ -5,8 +5,8 @@ use core::marker::PhantomData;
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    pattern::{ArrayPat, BindingAndType, FieldIdent, Pattern, RemPat, TuplePat},
-    syntax::{self, Crate, OpaqueType, Spans},
+    pattern::{ArrayPat, BindingAndType, Pattern, RemPat, StructPat, TuplePat},
+    syntax::{self, Crate, FieldName, OpaqueType, Spans},
     type_::{ArrayType, ParsedType, RealType, TupleType, Type},
     utils::{TokenStreamExt, WithSpan},
     Error,
@@ -18,7 +18,7 @@ pub(crate) enum FieldType<'a> {
     Direct(&'a RealType),
     Derived {
         spans: Spans,
-        field_name: &'a FieldIdent,
+        field_name: &'a FieldName,
         inside: &'a FieldType<'a>,
     },
 }
@@ -88,10 +88,23 @@ impl<'a> FieldType<'a> {
 
 pub(crate) struct ExtractConstCtx<'a> {
     pub(crate) bats: &'a mut Vec<BindingAndType>,
+    pub(crate) checked_locals: &'a mut Vec<CheckedLocal>,
     /// The length of the `..` pattern in tuple patterns
     pub(crate) tuple_rem_lens: &'a mut Vec<TokenStream>,
     pub(crate) tuple_rem_pat_const: &'a Ident,
     pub(crate) crate_kw: &'a Crate,
+}
+
+pub(crate) struct CheckedLocal {
+    pub(crate) binding: Ident,
+    pub(crate) type_: OpaqueType,
+}
+
+/// Whether a pattern is the whole pattern for a struct field.
+#[derive(Copy, Clone)]
+pub(crate) enum WholeFieldPat {
+    Yes,
+    No,
 }
 
 pub(crate) fn find_first_const_ident(pattern: &Pattern) -> Option<&Ident> {
@@ -99,6 +112,9 @@ pub(crate) fn find_first_const_ident(pattern: &Pattern) -> Option<&Ident> {
         Pattern::Array(ArrayPat { elems, .. }) | Pattern::Tuple(TuplePat { elems, .. }) => {
             elems.iter().find_map(find_first_const_ident)
         }
+        Pattern::Struct(StructPat { elems, .. }) => elems
+            .iter()
+            .find_map(|fp| find_first_const_ident(&fp.pattern)),
         Pattern::Underscore(_) => None,
         Pattern::Rem(RemPat { binding, .. }) => binding.as_ref().map(|b| &b.constant),
         Pattern::Ident(binding) => Some(&binding.constant),
@@ -125,9 +141,9 @@ fn find_first_ok_real_type(elems: &[Pattern], type_: ParsedType) -> Result<RealT
 
 pub(crate) fn real_type_from(pattern: &Pattern, type_: ParsedType) -> Result<RealType, Error> {
     match (pattern, type_) {
-        (Pattern::Underscore { .. }, ty) | (Pattern::Ident { .. }, ty) => {
-            ty.definite_length_real_type()
-        }
+        (Pattern::Underscore { .. }, ty)
+        | (Pattern::Ident { .. }, ty)
+        | (Pattern::Struct { .. }, ty) => ty.definite_length_real_type(),
         (Pattern::Array(ArrayPat { rem, elems, .. }), Type::Array(arr_ty)) => {
             let len = match (rem, arr_ty.len) {
                 (_, Some(len)) => len,
@@ -214,6 +230,7 @@ pub(crate) fn real_type_from(pattern: &Pattern, type_: ParsedType) -> Result<Rea
 pub(crate) fn extract_const_names_tys(
     pattern: &Pattern,
     type_: FieldType<'_>,
+    in_struct: WholeFieldPat,
     pctx: &mut ExtractConstCtx<'_>,
 ) -> Result<(), Error> {
     let ExtractConstCtx { crate_kw, .. } = *pctx;
@@ -225,73 +242,110 @@ pub(crate) fn extract_const_names_tys(
             pctx.bats.push(pat_ident.with_type(type_));
             Ok(())
         }
-        Pattern::Array(arr_pat) => {
-            let spans = Spans::from_one(arr_pat.brackets);
-            let field_name;
-            let subfield_ty = match type_ {
-                FieldType::Direct(Type::Array(ArrayType { elem_ty, .. })) => {
-                    FieldType::Direct(elem_ty)
-                }
-                FieldType::Direct(Type::Opaque { .. }) | FieldType::Derived { .. } => {
-                    field_name = FieldIdent::Numeric(0, spans);
-                    FieldType::Derived {
-                        spans,
-                        field_name: &field_name,
-                        inside: &type_,
-                    }
-                }
-                FieldType::Direct(ty) => {
-                    return Err(Error::new(ty.spans(), "expected array type"));
-                }
+        Pattern::Underscore(b) => {
+            // Only ignore the type when it's an ignored struct field that
+            // doesn't have a type annotation.
+            //
+            // `_` patterns nested in other patterns do assert the type though.
+            let type_ = match (type_, in_struct) {
+                (FieldType::Direct(ty), _) => ty.to_opaque(),
+                (FieldType::Derived { .. }, WholeFieldPat::No) => type_.to_opaque(crate_kw),
+                (FieldType::Derived { .. }, WholeFieldPat::Yes) => return Ok(()),
             };
 
-            let rem_length = || {
-                let mut ts = match type_ {
-                    FieldType::Direct(Type::Array(ArrayType { len, .. })) => len.clone(),
-                    FieldType::Direct(_) | FieldType::Derived { .. } => {
-                        syntax::tokenize_seq_length_assoc_const(
-                            crate_kw,
-                            type_.spans(),
-                            type_.to_tokens(crate_kw),
-                        )
-                    }
+            pctx.checked_locals.push(CheckedLocal {
+                binding: b.local.clone(),
+                type_,
+            });
+
+            Ok(())
+        }
+        Pattern::Struct(struct_pat) => {
+            for elem in &struct_pat.elems {
+                let subfield_ty = match &elem.type_annotation {
+                    Some(x) => FieldType::Direct(x),
+                    None => FieldType::Derived {
+                        spans: elem.pattern.spans(),
+                        field_name: &elem.name,
+                        inside: &type_,
+                    },
                 };
 
-                let count = arr_pat.elems.len() - 1; // 1 being the remainder pattern
-
-                ts.append_one(Punct::new('-', Spacing::Alone).with_span(arr_pat.brackets));
-                ts.append_one(Literal::usize_unsuffixed(count).with_span(arr_pat.brackets));
-
-                ts
-            };
-
-            for elem in &arr_pat.elems {
-                match elem {
-                    Pattern::Rem(RemPat {
-                        binding: Some(binding),
-                        ..
-                    }) => {
-                        let elem_ty = Type::Array(ArrayType {
-                            brackets: binding.constant.span(),
-                            elem_ty: Box::new(Type::Opaque(subfield_ty.to_opaque(crate_kw))),
-                            len: rem_length(),
-                        })
-                        .to_opaque();
-
-                        pctx.bats.push(binding.with_type(elem_ty));
-                    }
-                    Pattern::Rem(_) => {}
-                    _ => extract_const_names_tys(elem, subfield_ty, pctx)?,
-                }
+                extract_const_names_tys(&elem.pattern, subfield_ty, WholeFieldPat::Yes, pctx)?;
             }
             Ok(())
         }
+        Pattern::Array(arr_pat) => process_arr_pat(arr_pat, type_, pctx),
         Pattern::Tuple(tup_pat) => process_tup_pat(tup_pat, type_, pctx),
         Pattern::Rem { .. } => unreachable!("{}", core::panic::Location::caller()),
-        Pattern::Underscore { .. } => Ok(()),
     }
 }
 
+fn process_arr_pat(
+    arr_pat: &ArrayPat,
+    type_: FieldType<'_>,
+    pctx: &mut ExtractConstCtx<'_>,
+) -> Result<(), Error> {
+    let ExtractConstCtx { crate_kw, .. } = *pctx;
+
+    let spans = Spans::from_one(arr_pat.brackets);
+    let field_name;
+    let subfield_ty = match type_ {
+        FieldType::Direct(Type::Array(ArrayType { elem_ty, .. })) => FieldType::Direct(elem_ty),
+        FieldType::Direct(Type::Opaque { .. }) | FieldType::Derived { .. } => {
+            field_name = FieldName::Numeric(0, spans);
+            FieldType::Derived {
+                spans,
+                field_name: &field_name,
+                inside: &type_,
+            }
+        }
+        FieldType::Direct(ty) => {
+            return Err(Error::new(ty.spans(), "expected array type"));
+        }
+    };
+
+    let rem_length = || {
+        let mut ts = match type_ {
+            FieldType::Direct(Type::Array(ArrayType { len, .. })) => len.clone(),
+            FieldType::Direct(_) | FieldType::Derived { .. } => {
+                syntax::tokenize_seq_length_assoc_const(
+                    crate_kw,
+                    type_.spans(),
+                    type_.to_tokens(crate_kw),
+                )
+            }
+        };
+
+        let count = arr_pat.elems.len() - 1; // 1 being the remainder pattern
+
+        ts.append_one(Punct::new('-', Spacing::Alone).with_span(arr_pat.brackets));
+        ts.append_one(Literal::usize_unsuffixed(count).with_span(arr_pat.brackets));
+
+        ts
+    };
+
+    for elem in &arr_pat.elems {
+        match elem {
+            Pattern::Rem(RemPat {
+                binding: Some(binding),
+                ..
+            }) => {
+                let elem_ty = Type::Array(ArrayType {
+                    brackets: binding.constant.span(),
+                    elem_ty: Box::new(Type::Opaque(subfield_ty.to_opaque(crate_kw))),
+                    len: rem_length(),
+                })
+                .to_opaque();
+
+                pctx.bats.push(binding.with_type(elem_ty));
+            }
+            Pattern::Rem(_) => {}
+            _ => extract_const_names_tys(elem, subfield_ty, WholeFieldPat::No, pctx)?,
+        }
+    }
+    Ok(())
+}
 fn process_tup_pat(
     tup_pat: &TuplePat,
     type_: FieldType<'_>,
@@ -350,9 +404,9 @@ fn process_tup_pat(
                         Literal::usize_unsuffixed(i).with_span(sspan).into(),
                     ]);
 
-                    FieldIdent::NumericConst(num_const, elem.spans())
+                    FieldName::NumericConst(num_const, elem.spans())
                 } else {
-                    FieldIdent::Numeric(i, spans)
+                    FieldName::Numeric(i, spans)
                 };
                 FieldType::Derived {
                     spans,
@@ -365,7 +419,7 @@ fn process_tup_pat(
             }
         };
 
-        extract_const_names_tys(elem, subfield_ty, pctx)?;
+        extract_const_names_tys(elem, subfield_ty, WholeFieldPat::No, pctx)?;
         i += 1;
     }
     Ok(())

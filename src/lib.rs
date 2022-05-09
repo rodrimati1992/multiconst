@@ -7,7 +7,7 @@
 //!
 //! For more examples you can look [in the docs for `multiconst`][multiconst-examples]
 //!
-//! # Basic
+//! ### Basic
 //!
 //! This example demonstrates destructuring an array (whose length is inferred)
 //! into multiple constants.
@@ -37,6 +37,56 @@
 //!
 //! ```
 //!
+//! ### Struct
+//!
+//! This example demonstrates how structs that impl [`FieldType`][FieldType-trait]
+//! can be destructured.
+//!
+//! This example uses the [`FieldType`][FieldType-derive]
+//! derive macro (which requires the "derive" feature)
+//! to make it possible to destructure struct fields without
+//! [annotating their types][example-struct-ty-annot],.
+//!
+#![cfg_attr(feature = "derive", doc = "```rust")]
+#![cfg_attr(not(feature = "derive"), doc = "```ignore")]
+//! use multiconst::{FieldType, multiconst};
+//!
+//! assert_eq!(MIN, 3);
+//! assert_eq!(MAX, 21);
+//!
+//!
+//! multiconst!{
+//!     const MinMax{min: MIN, max: MAX}: MinMax = min_max(&[21, 13, 3, 8, 5]);
+//! }
+//!
+//! #[derive(FieldType)]
+//! struct MinMax {
+//!     min: u32,
+//!     max: u32,
+//! }
+//!
+//! const fn min_max(elems: &[u32]) -> MinMax {
+//!     let mut min = u32::MAX;
+//!     let mut max = 0;
+//!     
+//!     multiconst::for_range!{i in 0..elems.len() =>
+//!         let elem = elems[i];
+//!         
+//!         if elem < min { min = elem; }
+//!         if elem > max { max = elem; }
+//!     }
+//!     
+//!     MinMax{min, max}
+//! }
+//!
+//! ```
+//!
+//! # Features
+//!
+//! All these crate features are opt-in:
+//!
+//! - `"derive"`: enables the [`FieldType`][FieldType-derive] derive macro.
+//!
 //!
 //! # No-std support
 //!
@@ -48,8 +98,11 @@
 //!
 //!
 //! [`multiconst`]: crate::multiconst
+//! [FieldType-trait]: trait@crate::FieldType
+//! [FieldType-derive]: derive@crate::FieldType
 //! [multiconst-examples]: crate::multiconst#examples
-
+//! [example-struct-ty-annot]: crate::multiconst#example-struct-ty-annot
+#![cfg_attr(feature = "docsrs", feature(doc_auto_cfg))]
 #![no_std]
 #![forbid(unsafe_code)]
 
@@ -57,15 +110,20 @@ mod field_querying;
 
 pub use crate::field_querying::*;
 
+include! {"derive_macro_reexport.rs"}
+
 mod macros;
 mod utils_for_macros;
 
 #[doc(hidden)]
 pub mod __ {
-    pub use multiconst_proc_macros::__priv_multiconst_proc_macro;
+    pub use multiconst_proc_macros::{
+        __priv_associated_multiconst_proc_macro, __priv_field_name_aliases_proc_macro,
+        __priv_field_proc_macro, __priv_multiconst_proc_macro,
+    };
 
     pub use crate::{
-        field_querying::{GetFieldType, Usize},
+        field_querying::{GetFieldType, TChars, TIdent, Usize},
         utils_for_macros::{AssertSameTypes, SeqLength, Type},
     };
 

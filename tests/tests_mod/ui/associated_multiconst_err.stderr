@@ -1,0 +1,9 @@
+error[E0433]: failed to resolve: use of undeclared type `Self`
+ --> tests/tests_mod/ui/associated_multiconst_err.rs:3:1
+  |
+3 | / multiconst::associated_multiconst!{
+4 | |     const [A, B]: [u32; 2] = [3, 5];
+5 | | }
+  | |_^ use of undeclared type `Self`
+  |
+  = note: this error originates in the macro `$crate::__::__priv_associated_multiconst_proc_macro` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -1,12 +1,189 @@
 //! Syntax-related types and functions, no extension traits.
 
-use used_proc_macro::{Delimiter, Group, Ident, Punct, Spacing, Span, TokenStream, TokenTree};
+use used_proc_macro::{
+    Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree,
+};
+
+use alloc::{rc::Rc, string::ToString};
 
 use crate::{
     parsing::ParseStream,
-    utils::{IsIdent, TokenStreamExt, TokenTreeExt, WithSpan},
+    utils::{self, IsIdent, TokenStreamExt, TokenTreeExt, WithSpan},
     Error,
 };
+
+#[cfg(test)]
+mod testing;
+
+///////////////////////////////////////////////////////////////////////////////
+
+enum PathToken {
+    Type,
+    Colon,
+    Other,
+}
+
+fn is_path_token(tt: Option<&TokenTree>) -> Option<PathToken> {
+    match tt {
+        Some(TokenTree::Ident(_)) => Some(PathToken::Other),
+        Some(TokenTree::Punct(p)) => match p.as_char() {
+            '<' => Some(PathToken::Type),
+            ':' => Some(PathToken::Colon),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// Loose path parsing
+#[cfg_attr(feature = "__dbg", derive(Debug))]
+pub(crate) struct Path {
+    pub(crate) tokens: TokenStream,
+    pub(crate) spans: Spans,
+}
+
+impl Path {
+    pub(crate) fn parse(input: ParseStream<'_>) -> Result<Path, Error> {
+        let mut out = TokenStream::new();
+        let start = input.span();
+        let mut prev_pt = PathToken::Other;
+
+        while let Some(pt) = is_path_token(input.peek()) {
+            match pt {
+                PathToken::Type => {
+                    if out.is_empty() {
+                        return Err(Error::with_span(input.span(), "path can't start with `<`"));
+                    }
+
+                    let ot = input.parse_opaque_type_with(|_| true)?;
+
+                    if !matches!(prev_pt, PathToken::Colon) {
+                        let c2span = ot.spans.start;
+                        out.append_one(Punct::new(':', Spacing::Joint).with_span(c2span));
+                        out.append_one(Punct::new(':', Spacing::Alone).with_span(c2span));
+                    }
+                    out.extend(ot.ty)
+                }
+                PathToken::Colon | PathToken::Other => {
+                    out.extend(input.next());
+                }
+            }
+            prev_pt = pt;
+        }
+
+        if out.is_empty() {
+            return Err(input.error("expected path after this token"));
+        }
+        let spans = Spans {
+            start,
+            end: input.span(),
+        };
+
+        Ok(Path { tokens: out, spans })
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+#[cfg_attr(feature = "__dbg", derive(Debug))]
+pub(crate) enum FieldName {
+    Numeric(usize, Spans),
+    Alphabetic(Rc<str>, Spans),
+    /// A numeric identifier, determined by a constant in the expanded code.
+    NumericConst(TokenStream, Spans),
+}
+
+impl FieldName {
+    #[cfg(feature = "derive")]
+    pub(crate) fn tokens(&self, crate_path: &syn::Path) -> TokenStream {
+        use quote::ToTokens;
+
+        let mut ts = TokenStream::new();
+        self.to_token_stream_inner(&mut ts, &|item_name, spans, ts| {
+            let item = Ident::new(item_name, spans.end);
+            ts.extend(quote::quote_spanned!(spans.start=> #crate_path::__::));
+            item.to_tokens(ts);
+        });
+        ts
+    }
+
+    fn to_token_stream_inner(
+        &self,
+        ts: &mut TokenStream,
+        item_to_ts: &dyn Fn(&str, Spans, &mut TokenStream),
+    ) {
+        match *self {
+            FieldName::Numeric(n, spans) => {
+                item_to_ts("Usize", spans, ts);
+
+                ts.append_one(Punct::new('<', Spacing::Joint).with_span(spans.start));
+                ts.append_one(Literal::usize_unsuffixed(n).with_span(spans.end));
+                ts.append_one(Punct::new('>', Spacing::Joint).with_span(spans.end));
+            }
+            FieldName::Alphabetic(ref str, spans) => {
+                let mut chars = str.chars();
+                let span = spans.start;
+
+                item_to_ts("TIdent", spans, ts);
+
+                ts.append_one(Punct::new('<', Spacing::Joint).with_span(span));
+
+                tokenize_delim(Delimiter::Parenthesis, span, ts, |ts| {
+                    while !chars.as_str().is_empty() {
+                        item_to_ts("TChars", spans, ts);
+
+                        ts.append_one(Punct::new('<', Spacing::Joint).with_span(span));
+
+                        chars
+                            .by_ref()
+                            .chain(core::iter::repeat(' '))
+                            .take(8)
+                            .for_each(|c| {
+                                ts.append_one(Literal::character(c).with_span(span));
+                                ts.append_one(Punct::new(',', Spacing::Joint).with_span(span));
+                            });
+
+                        ts.append_one(Punct::new('>', Spacing::Joint).with_span(span));
+                        ts.append_one(Punct::new(',', Spacing::Joint).with_span(span));
+                    }
+                });
+
+                ts.append_one(Punct::new('>', Spacing::Joint).with_span(span));
+            }
+            FieldName::NumericConst(ref x, spans) => {
+                item_to_ts("Usize", spans, ts);
+
+                ts.append_one(Punct::new('<', Spacing::Joint).with_span(spans.start));
+                ts.append_one(Group::new(Delimiter::Brace, x.clone()));
+                ts.append_one(Punct::new('>', Spacing::Joint).with_span(spans.end));
+            }
+        }
+    }
+    pub(crate) fn to_token_stream(&self, crate_kw: &Crate, ts: &mut TokenStream) {
+        self.to_token_stream_inner(ts, &|item_name, spans, ts| {
+            crate_kw.item_to_ts(item_name, spans, ts)
+        })
+    }
+
+    pub(crate) fn parse(input: ParseStream<'_>) -> Result<Self, Error> {
+        const EXPECTED: &str = "expected either an untyped numeric literal or an identifier";
+
+        match input.next() {
+            Some(TokenTree::Literal(lit)) => match lit.to_string().parse::<usize>() {
+                Ok(x) => Ok(FieldName::Numeric(x, Spans::from_one(lit.span()))),
+                Err(_) => Err(Error::with_span(lit.span(), EXPECTED)),
+            },
+            Some(TokenTree::Ident(ident)) => Ok(Self::from_ident(&ident)),
+            Some(tt) => Err(Error::with_span(tt.span(), EXPECTED)),
+            None => Err(Error::with_span(Span::call_site(), EXPECTED)),
+        }
+    }
+
+    pub(crate) fn from_ident(ident: &Ident) -> Self {
+        let s = Rc::<str>::from(utils::ident_to_string_no_raw(&ident));
+        FieldName::Alphabetic(s, Spans::from_one(ident.span()))
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -93,6 +270,13 @@ pub(crate) struct Crate {
 }
 
 impl Crate {
+    #[cfg(test)]
+    pub(crate) fn new_dummy() -> Self {
+        Crate {
+            ident: Ident::new("crate", Span::call_site()),
+        }
+    }
+
     /// outputs the path to the item at `multiconst::__::{item}`
     pub(crate) fn item_to_ts(&self, item: &str, spans: Spans, ts: &mut TokenStream) {
         ts.append_array([
@@ -125,6 +309,13 @@ impl Crate {
             )),
             Err(e) => Err(e),
         }
+    }
+}
+
+#[cfg(feature = "derive")]
+impl quote::ToTokens for Crate {
+    fn to_tokens(&self, ts: &mut used_proc_macro::TokenStream) {
+        self.ident.to_tokens(ts);
     }
 }
 
@@ -167,8 +358,12 @@ impl Attributes {
         if self.attrs.is_empty() {
             Ok(())
         } else {
-            Err(Error::new(self.spans, "these attributes are unused"))
+            self.unused_error()
         }
+    }
+
+    pub(crate) fn unused_error<T>(&self) -> Result<T, Error> {
+        Err(Error::new(self.spans, "these attributes are unused"))
     }
 
     /// Appens an attribute that comes after `self` into `self`.

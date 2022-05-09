@@ -1,3 +1,26 @@
+error[E0428]: the name `Z` is defined multiple times
+  --> tests/tests_mod/ui/post_expansion_type_errors_err.rs:34:18
+   |
+34 |     const [X, Z, Z]: [(); 3] = [(), (), ()];
+   |               -  ^ `Z` redefined here
+   |               |
+   |               previous definition of the value `Z` here
+   |
+   = note: `Z` must be defined only once in the value namespace of this module
+   = note: this error originates in the macro `$crate::__::__priv_multiconst_proc_macro` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0428]: the name `Z` is defined multiple times
+  --> tests/tests_mod/ui/post_expansion_type_errors_err.rs:38:11
+   |
+34 |     const [X, Z, Z]: [(); 3] = [(), (), ()];
+   |               - previous definition of the value `Z` here
+...
+38 |     const Z: () = ();
+   |           ^ `Z` redefined here
+   |
+   = note: `Z` must be defined only once in the value namespace of this module
+   = note: this error originates in the macro `$crate::__::__priv_multiconst_proc_macro` (in Nightly builds, run with -Z macro-backtrace for more info)
+
 error[E0308]: mismatched types
  --> tests/tests_mod/ui/post_expansion_type_errors_err.rs:6:23
   |
@@ -34,3 +57,41 @@ error[E0527]: pattern requires 3 elements but array has 4
    |
 28 |     const [A2, B2, C2]: [(); 4] = [(),(),(),()];
    |           ^^^^^^^^^^^^ expected 4 elements
+
+error[E0308]: mismatched types
+  --> tests/tests_mod/ui/post_expansion_type_errors_err.rs:45:19
+   |
+45 |     const _: () = 100;
+   |              --   ^^^ expected `()`, found integer
+   |              |
+   |              expected due to this
+
+error[E0308]: mismatched types
+  --> tests/tests_mod/ui/post_expansion_type_errors_err.rs:50:34
+   |
+50 |     const std::ops::Range{start: _: u32, ..}: std::ops::Range<u8> = 3u8..5;
+   |                                  ^  --- expected due to this
+   |                                  |
+   |                                  expected `u32`, found `u8`
+   |
+   = note: this error originates in the macro `$crate::__::__priv_multiconst_proc_macro` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/tests_mod/ui/post_expansion_type_errors_err.rs:55:35
+   |
+55 |     const std::ops::Range{start: [_, _]: [u32; 2], ..}: std::ops::Range<[u8; 2]> =
+   |                                   ^       --- expected due to this
+   |                                   |
+   |                                   expected `u32`, found `u8`
+   |
+   = note: this error originates in the macro `$crate::__::__priv_multiconst_proc_macro` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/tests_mod/ui/post_expansion_type_errors_err.rs:55:38
+   |
+55 |     const std::ops::Range{start: [_, _]: [u32; 2], ..}: std::ops::Range<[u8; 2]> =
+   |                                      ^    --- expected due to this
+   |                                      |
+   |                                      expected `u32`, found `u8`
+   |
+   = note: this error originates in the macro `$crate::__::__priv_multiconst_proc_macro` (in Nightly builds, run with -Z macro-backtrace for more info)
